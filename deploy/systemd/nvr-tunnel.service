@@ -5,6 +5,8 @@ Wants=network-online.target
 
 [Service]
 EnvironmentFile=/etc/nvr-recorder/env
+User=nvr
+Group=nvr
 ExecStart=/usr/local/bin/nvr-tunnel
 Restart=always
 RestartSec=5

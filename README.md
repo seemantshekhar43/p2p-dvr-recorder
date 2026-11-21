@@ -32,20 +32,24 @@ Live end-to-end (needs `CAM_SERIAL` and `CAM_PASSWORD` in the environment, never
     docker run --rm -e CAM_SERIAL -e CAM_PASSWORD -v "$PWD":/src -v nvr-build:/tmp/b nvr-swift-dev /src/scripts/linux-e2e.sh
     docker run -d  -e CAM_SERIAL -e CAM_PASSWORD -v "$PWD":/src -v nvr-build:/tmp/b -v "$PWD/sandbox/soak-out":/out nvr-swift-dev /src/scripts/soak.sh 30 10
 
-## Install (Debian 13 / Ubuntu 24.04)
+## Install (Debian / Ubuntu, as root)
 
-    apt install ffmpeg zlib1g-dev curl      # plus a Swift 6 toolchain to build
-    swift build -c release --product nvr-tunnel
-    install .build/release/nvr-tunnel /usr/local/bin/
-    install deploy/bin/nvr-* /usr/local/bin/
-    install -d -m 700 /etc/nvr-recorder
-    install -m 600 deploy/nvr-recorder.env.example /etc/nvr-recorder/env   # then fill it in
-    cp deploy/systemd/* /etc/systemd/system/
-    systemctl enable --now nvr-tunnel nvr-retention.timer nvr-health.timer
-    for c in $(. /etc/nvr-recorder/env; echo $CHANNELS); do systemctl enable --now nvr-recorder@$c; done
+    # 1. Get a binary: build on any machine with Docker, for the target CPU (amd64 or arm64)
+    scripts/build-release.sh amd64
+    # 2. On the target host, from this checkout:
+    ./install.sh --binary dist/nvr-tunnel-linux-amd64
 
-All settings (channels, stream type, ports, cloud, segment length, retention, quota, ntfy) are
-environment variables documented in `deploy/nvr-recorder.env.example`.
+`install.sh` installs ffmpeg and curl, the binaries, a non-root `nvr` system user, the systemd units,
+and creates `/etc/nvr-recorder/env` (mode 600) from `deploy/nvr-recorder.env.example`. If the env file
+has no `CAM_SERIAL` / `CAM_PASSWORD` yet it stops there: edit the file, then re-run
+`./install.sh --skip-deps --binary ...`. Re-running is safe (the env file is never overwritten) and
+restarts the services so a new binary takes effect. Options: `--prefix`, `--user`, `--env-file`,
+`--skip-deps`, `--no-start`. Without `--binary` it uses `dist/` or builds with `swift build` if Swift is installed.
 
-Credentials live only in `/etc/nvr-recorder/env`. Note ffmpeg takes them in the RTSP URL, so they are
+If you shrink `CHANNELS`, disable the old instances yourself: `systemctl disable --now nvr-recorder@N`.
+
+All settings (device, ports, cloud, channels, stream type, storage path, segment length, retention
+hours, quota, ntfy) are environment variables documented in `deploy/nvr-recorder.env.example`.
+
+Credentials live only in `/etc/nvr-recorder/env`. ffmpeg takes them in the RTSP URL, so they are
 visible in `ps` to local users, and `nvr-record` masks them in ffmpeg's output.

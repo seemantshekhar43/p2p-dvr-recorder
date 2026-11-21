@@ -4,4 +4,8 @@ Description=NVR health
 [Service]
 Type=oneshot
 EnvironmentFile=/etc/nvr-recorder/env
+User=nvr
+Group=nvr
+RuntimeDirectory=nvr-health
+RuntimeDirectoryPreserve=yes
 ExecStart=/usr/local/bin/nvr-health

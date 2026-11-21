@@ -3,7 +3,7 @@
 # allocation. Alerts on state change only (ntfy), always logs to stdout.
 set -u
 : "${REC_DIR:=/mnt/recordings}" "${CHANNELS:=1 2 3 4 5 6}" "${QUOTA_GB:=150}" "${QUOTA_ALERT_PCT:=90}"
-: "${STALE_SECONDS:=180}" "${STATE_DIR:=/run/nvr-health}"
+: "${STALE_SECONDS:=180}" "${STATE_DIR:=${RUNTIME_DIRECTORY:-/run/nvr-health}}"
 mkdir -p "$STATE_DIR"
 now=$(date +%s)
 problems=""
