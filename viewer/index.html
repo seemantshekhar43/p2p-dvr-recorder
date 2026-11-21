@@ -94,8 +94,9 @@
     background: rgba(0,0,0,.45); }
   .chip::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--rec); }
   .chip[hidden] { display: none; }
-  .btns { display: inline-flex; gap: 4px; opacity: 0; transition: opacity .12s; pointer-events: auto; }
-  .tile:hover .btns, .tile:focus-within .btns { opacity: 1; }
+  /* visibility, not opacity: an opacity layer over a hardware-decoded video can be composited as an opaque box */
+  .btns { display: inline-flex; gap: 4px; visibility: hidden; pointer-events: auto; }
+  .tile:hover .btns, .tile:focus-within .btns { visibility: visible; }
   .ib { width: 28px; height: 28px; border: 0; border-radius: 6px; background: rgba(0,0,0,.5); color: #fff; display: inline-flex;
     align-items: center; justify-content: center; }
   .ib:hover { background: rgba(0,0,0,.75); }
