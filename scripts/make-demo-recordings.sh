@@ -11,7 +11,7 @@ for ch in $(seq 1 "$chans"); do
   for i in $(seq 0 $(( minutes - 1 ))); do
     start=$(( base + i * 60 ))
     name=$(date -u -d "@$start" +%Y%m%d-%H%M%S 2>/dev/null || date -u -r "$start" +%Y%m%d-%H%M%S)
-    ffmpeg -v error -y -f lavfi -i "testsrc2=size=640x360:rate=10:duration=60" -f lavfi -i "color=c=0x$(printf '%02x%02x%02x' $((ch*40)) $((255-ch*40)) 160):size=640x360:rate=10:duration=60" \
+    ffmpeg -nostdin -v error -y -f lavfi -i "testsrc2=size=640x360:rate=10:duration=60" -f lavfi -i "color=c=0x$(printf '%02x%02x%02x' $((ch*40)) $((255-ch*40)) 160):size=640x360:rate=10:duration=60" \
       -filter_complex "[0][1]blend=all_mode=overlay:all_opacity=0.35" -c:v libx264 -preset ultrafast -crf 32 -pix_fmt yuv420p "$dir/ch$ch/$name.mkv"
     touch -d "@$(( start + 60 ))" "$dir/ch$ch/$name.mkv" 2>/dev/null || touch -t "$(date -r $(( start + 60 )) +%Y%m%d%H%M.%S)" "$dir/ch$ch/$name.mkv"
   done
