@@ -43,7 +43,7 @@ Live end-to-end (needs `CAM_SERIAL` and `CAM_PASSWORD` in the environment, never
 and creates `/etc/nvr-recorder/env` (mode 600) from `deploy/nvr-recorder.env.example`. If the env file
 has no `CAM_SERIAL` / `CAM_PASSWORD` yet it stops there: edit the file, then re-run
 `./install.sh --skip-deps --binary ...`. Re-running is safe (the env file is never overwritten) and
-restarts the services so a new binary takes effect. Options: `--prefix`, `--user`, `--env-file`,
+restarts the services so a new binary takes effect. Options: `--prefix`, `--user`, `--uid` (pin the service user's uid, handy for bind mounts in unprivileged LXCs), `--env-file`,
 `--skip-deps`, `--no-start`. Without `--binary` it uses `dist/` or builds with `swift build` if Swift is installed.
 
 If you shrink `CHANNELS`, disable the old instances yourself: `systemctl disable --now nvr-recorder@N`.

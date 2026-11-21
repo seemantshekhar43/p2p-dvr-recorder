@@ -1,7 +1,7 @@
 #!/bin/bash
 # Install p2p-dvr-recorder on a Debian/Ubuntu host (run as root, from the repo checkout).
 #
-#   ./install.sh [--binary PATH] [--prefix DIR] [--user NAME] [--env-file PATH] [--skip-deps] [--no-start]
+#   ./install.sh [--binary PATH] [--prefix DIR] [--user NAME] [--uid N] [--env-file PATH] [--skip-deps] [--no-start]
 #
 # Binary: --binary PATH, else dist/nvr-tunnel-linux-<arch> (see scripts/build-release.sh),
 # else built with `swift build` if a Swift toolchain is installed.
@@ -9,12 +9,13 @@
 # so a new binary takes effect.
 set -euo pipefail
 
-PREFIX=/usr/local; SVC_USER=nvr; ENV_FILE=/etc/nvr-recorder/env; BIN=; DEPS=1; START=1
+PREFIX=/usr/local; SVC_USER=nvr; SVC_UID=; ENV_FILE=/etc/nvr-recorder/env; BIN=; DEPS=1; START=1
 while [ $# -gt 0 ]; do
   case $1 in
     --binary) BIN=${2:?}; shift 2 ;;
     --prefix) PREFIX=${2:?}; shift 2 ;;
     --user) SVC_USER=${2:?}; shift 2 ;;
+    --uid) SVC_UID=${2:?}; shift 2 ;;
     --env-file) ENV_FILE=${2:?}; shift 2 ;;
     --skip-deps) DEPS=0; shift ;;
     --no-start) START=0; shift ;;
@@ -52,7 +53,12 @@ install -d "$PREFIX/bin"
 install -m 755 "$BIN" "$PREFIX/bin/nvr-tunnel"
 install -m 755 deploy/bin/nvr-record deploy/bin/nvr-retention deploy/bin/nvr-health "$PREFIX/bin/"
 
-id "$SVC_USER" >/dev/null 2>&1 || { say "creating system user $SVC_USER"; useradd --system --no-create-home --shell /usr/sbin/nologin "$SVC_USER"; }
+# --uid pins the uid, so on an unprivileged LXC you know the host-side owner of a bind mount
+# (host uid = 100000 + container uid).
+id "$SVC_USER" >/dev/null 2>&1 || {
+  say "creating system user $SVC_USER"
+  useradd --system --no-create-home --shell /usr/sbin/nologin ${SVC_UID:+--uid "$SVC_UID"} "$SVC_USER"
+}
 
 install -d -m 755 "$(dirname "$ENV_FILE")"
 if [ -f "$ENV_FILE" ]; then say "keeping existing $ENV_FILE"
