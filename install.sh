@@ -5,8 +5,8 @@
 #
 # Binary: --binary PATH, else dist/nvr-tunnel-linux-<arch> (see scripts/build-release.sh), else the
 # already installed one (script-only upgrade), else built with `swift build` if Swift is installed.
-# Safe to re-run: an existing env file is never overwritten; services are restarted
-# so a new binary takes effect.
+# Safe to re-run: an existing env file is never overwritten; services whose binary or
+# script changed are restarted, the rest are left running.
 set -euo pipefail
 
 PREFIX=/usr/local; SVC_USER=nvr; SVC_UID=; ENV_FILE=/etc/nvr-recorder/env; BIN=; DEPS=1; START=1
@@ -48,6 +48,11 @@ if [ -z "$BIN" ]; then
   fi
 fi
 [ -f "$BIN" ] || { echo "binary not found: $BIN" >&2; exit 1; }
+
+# Only restart what changed: a tunnel restart drops the relay session and costs a recording gap.
+BIN_CHANGED=0; REC_CHANGED=0
+cmp -s "$BIN" "$PREFIX/bin/nvr-tunnel" 2>/dev/null || BIN_CHANGED=1
+cmp -s deploy/bin/nvr-record "$PREFIX/bin/nvr-record" 2>/dev/null || REC_CHANGED=1
 
 say "installing binaries to $PREFIX/bin"
 install -d "$PREFIX/bin"
@@ -97,11 +102,11 @@ fi
 
 say "enabling services"
 systemctl enable nvr-tunnel.service nvr-retention.timer nvr-health.timer nvr-viewer.service >/dev/null
-systemctl restart nvr-tunnel.service
+if [ "$BIN_CHANGED" -eq 1 ]; then systemctl restart nvr-tunnel.service; else systemctl start nvr-tunnel.service; fi
 systemctl start nvr-retention.timer nvr-health.timer
 systemctl restart nvr-viewer.service
 for c in ${CHANNELS:-1 2 3 4 5 6}; do
   systemctl enable "nvr-recorder@$c.service" >/dev/null
-  systemctl restart "nvr-recorder@$c.service"
+  if [ "$BIN_CHANGED" -eq 1 ] || [ "$REC_CHANGED" -eq 1 ]; then systemctl restart "nvr-recorder@$c.service"; else systemctl start "nvr-recorder@$c.service"; fi
 done
 say "done. Check: systemctl status nvr-tunnel; journalctl -u nvr-tunnel -f; $PREFIX/bin/nvr-health"
