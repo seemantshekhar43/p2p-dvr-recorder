@@ -1,0 +1,5 @@
+#!/bin/sh
+# Delete segments older than RETENTION_HOURS (default 48).
+set -eu
+: "${REC_DIR:=/mnt/recordings}" "${RETENTION_HOURS:=48}"
+find "$REC_DIR" -type f -name '*.mkv' -mmin "+$((RETENTION_HOURS * 60))" -delete

@@ -1,0 +1,7 @@
+[Unit]
+Description=NVR health
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/nvr-recorder/env
+ExecStart=/usr/local/bin/nvr-health

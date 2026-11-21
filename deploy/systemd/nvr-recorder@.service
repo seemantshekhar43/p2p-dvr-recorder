@@ -1,0 +1,15 @@
+[Unit]
+Description=NVR recorder, channel %i
+After=nvr-tunnel.service
+Requires=nvr-tunnel.service
+
+[Service]
+EnvironmentFile=/etc/nvr-recorder/env
+ExecStart=/usr/local/bin/nvr-record %i
+Restart=always
+RestartSec=5
+# A tunnel restart takes a while (device holds the old relay session ~15-20 s); don't hit the start limit.
+StartLimitIntervalSec=0
+
+[Install]
+WantedBy=multi-user.target

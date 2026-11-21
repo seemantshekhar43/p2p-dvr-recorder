@@ -1,0 +1,23 @@
+#!/bin/bash
+# Record one DVR channel to segment files via the local tunnel. Exits when the
+# RTSP session breaks; systemd restarts it.  usage: nvr-record <channel>
+set -euo pipefail
+ch="${1:?channel}"
+: "${CAM_USER:=admin}" "${CAM_PASSWORD:?}" "${REC_DIR:=/mnt/recordings}"
+: "${NVR_LISTEN:=1554}" "${SEGMENT_SECONDS:=1800}" "${SUBTYPE:=0}"
+# Per-channel stream override: SUBTYPE_<n>=1 records channel n on the sub-stream.
+sub_var="SUBTYPE_$ch"; SUBTYPE="${!sub_var:-$SUBTYPE}"
+dir="$REC_DIR/ch$ch"
+mkdir -p "$dir"
+
+# Percent-encode the password for the URL userinfo (it may contain @ : / etc).
+urlenc() { local s=$1 i c out=; for ((i = 0; i < ${#s}; i++)); do c=${s:i:1}; case $c in [A-Za-z0-9._~-]) out+=$c ;; *) out+=$(printf '%%%02X' "'$c") ;; esac; done; printf %s "$out"; }
+pw=$(urlenc "$CAM_PASSWORD")
+
+# ffmpeg echoes the input URL (credentials included) in some errors; mask it.
+ffmpeg -nostdin -hide_banner -loglevel warning \
+  -rtsp_transport tcp -timeout 15000000 -use_wallclock_as_timestamps 1 \
+  -i "rtsp://$CAM_USER:$pw@127.0.0.1:$NVR_LISTEN/cam/realmonitor?channel=$ch&subtype=$SUBTYPE" \
+  -c copy -an -f segment -segment_time "$SEGMENT_SECONDS" -segment_atclocktime 1 \
+  -segment_format matroska -reset_timestamps 1 -strftime 1 "$dir/%Y%m%d-%H%M%S.mkv" 2>&1 \
+  | sed -E 's#(rtsp://[^:/@]*:)[^/]*@127\.0\.0\.1#\1***@127.0.0.1#g'

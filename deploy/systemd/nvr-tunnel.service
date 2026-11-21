@@ -1,0 +1,13 @@
+[Unit]
+Description=NVR InstaOn relay tunnel (DVR RTSP on 127.0.0.1:1554)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+EnvironmentFile=/etc/nvr-recorder/env
+ExecStart=/usr/local/bin/nvr-tunnel
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,7 @@
+[Unit]
+Description=NVR retention
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/nvr-recorder/env
+ExecStart=/usr/local/bin/nvr-retention
