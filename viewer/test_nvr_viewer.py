@@ -116,6 +116,11 @@ class Server(unittest.TestCase):
         self.assertEqual(self.get("/media/1/20261121-190000.mp4")[0], 404)  # stub remux returns None
         self.assertEqual(self.get("/nope")[0], 404)
 
+    def test_names_in_api(self):
+        self.start(VIEWER_NAMES="Gate, ,Hall")
+        d = json.loads(self.get("/api/segments")[1])
+        self.assertEqual(d["names"], {"1": "Gate"})  # blank skipped; channel 2 has no name, extra names ignored
+
     def test_basic_auth(self):
         self.start(VIEWER_PASSWORD="s3cret", VIEWER_USER="me")
         self.assertEqual(self.get("/")[0], 401)

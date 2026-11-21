@@ -6,323 +6,535 @@
 <title>DVR Recordings</title>
 <style>
   :root {
-    --bg: #f6f6f4; --panel: #ffffff; --ink: #1c1d1f; --muted: #6b6f76; --line: #dcdcd8;
-    --seg: #3d7a6b; --seg-live: #c4562b; --seg-sel: #1f5a4c; --accent: #1f5a4c; --head: #ecece8;
-    --play: #d8412f; --focus: #2a6fdb;
+    --bg: #f2f2ef; --panel: #ffffff; --ink: #1a1b1d; --muted: #6a6e75; --line: #dcdbd6; --soft: #ebebe6;
+    --accent: #1f6f5c; --accent-ink: #ffffff; --rec: #d9542b; --seg: #4a8f7c; --play: #e0402c; --focus: #2a6fdb;
   }
   @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      --bg: #111214; --panel: #1a1c1f; --ink: #e8e9ea; --muted: #8b9098; --line: #2a2d31;
-      --seg: #4f9a87; --seg-live: #e0764a; --seg-sel: #7fcfb9; --accent: #7fcfb9; --head: #222428;
-      --play: #ff6b57; --focus: #6ea3ff;
+    :root {
+      --bg: #0e0f11; --panel: #17181b; --ink: #e8e9ea; --muted: #8a8f97; --line: #2a2c30; --soft: #1f2125;
+      --accent: #6fcdb4; --accent-ink: #0e1512; --rec: #ef7a4e; --seg: #4f9a87; --play: #ff6b57; --focus: #6ea3ff;
     }
   }
   * { box-sizing: border-box; }
-  html, body { margin: 0; background: var(--bg); color: var(--ink);
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink);
     font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-  body { min-height: 100vh; }
-  .wrap { max-width: 1280px; margin: 0 auto; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
-  header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-  h1 { font-size: 17px; font-weight: 600; margin: 0 8px 0 0; letter-spacing: -0.01em; }
-  .spacer { flex: 1; }
-  button, select, input[type="date"] {
-    font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line);
-    border-radius: 6px; padding: 5px 10px; height: 32px;
-  }
+  body { display: flex; flex-direction: column; min-height: 100vh; }
+  button, select, input { font: inherit; color: var(--ink); }
   button { cursor: pointer; }
-  button:hover:not(:disabled) { border-color: var(--muted); }
-  button:disabled { opacity: .45; cursor: default; }
-  :focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
-  .icon { width: 32px; padding: 0; }
+  :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  svg { width: 18px; height: 18px; fill: currentColor; display: block; }
+
+  /* top bar */
+  .top { display: flex; align-items: center; gap: 14px; padding: 10px 16px; background: var(--panel);
+    border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .brand { font-weight: 650; font-size: 15px; letter-spacing: -0.01em; }
+  .spacer { flex: 1; }
+  .group { display: inline-flex; background: var(--soft); border-radius: 8px; padding: 2px; gap: 2px; }
+  .group button { border: 0; background: transparent; height: 30px; min-width: 34px; border-radius: 6px; color: var(--muted);
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 9px; }
+  .group button:hover { color: var(--ink); }
+  .group button[aria-pressed="true"] { background: var(--panel); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.18); }
+  .pager { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-size: 12px; }
+  .pager[hidden] { display: none; }
+  .btn { border: 1px solid var(--line); background: var(--panel); height: 32px; border-radius: 7px; padding: 0 11px;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+  .btn:hover:not(:disabled) { border-color: var(--muted); }
+  .btn:disabled { opacity: .4; cursor: default; }
+  .btn.icon { width: 32px; padding: 0; }
+  .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  input[type="date"], select { height: 32px; border: 1px solid var(--line); background: var(--panel); border-radius: 7px; padding: 0 8px; }
   .tz { color: var(--muted); font-size: 12px; }
-  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
-  .player { display: flex; flex-direction: column; overflow: hidden; }
-  .stage { background: #000; display: flex; align-items: center; justify-content: center;
-    height: min(56vh, 560px); position: relative; border-radius: 10px 10px 0 0; }
-  video { object-fit: fill; background: #000; }
-  video:not([src]) { visibility: hidden; }
-  .msg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-    color: #cfd2d6; text-align: center; padding: 24px; pointer-events: none; }
-  .msg[hidden] { display: none; }
-  .bar { display: flex; align-items: center; gap: 12px; padding: 8px 12px; flex-wrap: wrap;
-    border-top: 1px solid var(--line); min-height: 48px; }
-  .now { font-weight: 600; font-variant-numeric: tabular-nums; }
-  .sub { color: var(--muted); font-variant-numeric: tabular-nums; }
-  .timeline { padding: 10px 12px 12px; }
-  .axis, .lane { display: grid; grid-template-columns: 52px 1fr; align-items: center; }
-  .axis { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; margin-bottom: 4px; }
+  .banner { background: #fff3cd; color: #5b4400; padding: 8px 16px; font-size: 13px; border-bottom: 1px solid #ecd999; }
+  .banner[hidden] { display: none; }
+  @media (prefers-color-scheme: dark) { .banner { background: #3b3216; color: #f1deaa; border-color: #5a4a1d; } }
+
+  /* stage */
+  .main { flex: 1; min-height: 340px; display: flex; gap: 12px; padding: 12px 16px 0; }
+  .cams { width: 156px; flex: none; display: none; flex-direction: column; gap: 4px; overflow-y: auto; }
+  .main[data-mode="1"] .cams { display: flex; }
+  .cam { display: flex; align-items: center; gap: 8px; text-align: left; border: 1px solid transparent; background: transparent;
+    padding: 7px 10px; border-radius: 8px; color: var(--muted); }
+  .cam:hover { background: var(--soft); color: var(--ink); }
+  .cam[aria-current="true"] { background: var(--panel); border-color: var(--line); color: var(--ink); font-weight: 600;
+    box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+  .cam .nm { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); flex: none; }
+  .dot.live { background: var(--rec); }
+  .gridbox { flex: 1; min-width: 0; container-type: size; }
+  .grid { height: 100%; display: grid; justify-content: center; align-content: center; gap: 8px;
+    --cols: 2; --rows: 2;
+    --tw: min(calc((100cqw - (var(--cols) - 1) * 8px) / var(--cols)), calc((100cqh - (var(--rows) - 1) * 8px) / var(--rows) * 16 / 9));
+    grid-template-columns: repeat(var(--cols), var(--tw)); }
+  .grid[data-mode="1"] { --cols: 1; --rows: 1; }
+  .grid[data-mode="4"] { --cols: 2; --rows: 2; }
+  .grid[data-mode="8"] { --cols: 4; --rows: 2; }
+  .tile { position: relative; aspect-ratio: 16 / 9; background: #000; border-radius: 9px; overflow: hidden; cursor: pointer;
+    box-shadow: 0 0 0 1px var(--line); }
+  .grid[data-mode="1"] .tile { cursor: default; }
+  .tile:hover { box-shadow: 0 0 0 2px var(--accent); }
+  .grid[data-mode="1"] .tile:hover { box-shadow: 0 0 0 1px var(--line); }
+  .tile video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; }
+  .tile.anam video { object-fit: fill; }
+  .tile.empty video { visibility: hidden; }
+  .tile .msg { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; color: #9aa0a8;
+    font-size: 13px; text-align: center; padding: 12px; pointer-events: none; }
+  .tile.empty .msg, .tile.err .msg { display: flex; }
+  .tile.ph { background: var(--soft); box-shadow: 0 0 0 1px var(--line); cursor: default; }
+  .tile.ph:hover { box-shadow: 0 0 0 1px var(--line); }
+  .tile.ph .msg { display: flex; color: var(--muted); }
+  .ov { position: absolute; left: 0; right: 0; display: flex; align-items: center; gap: 6px; padding: 8px 10px; pointer-events: none;
+    color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.7); }
+  .ov.top { top: 0; background: linear-gradient(rgba(0,0,0,.55), transparent); padding-bottom: 18px; }
+  .ov.bot { bottom: 0; background: linear-gradient(transparent, rgba(0,0,0,.55)); padding-top: 18px; font-variant-numeric: tabular-nums; font-size: 12px; }
+  .lbl { font-weight: 600; font-size: 13px; }
+  .chip { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 10px;
+    background: rgba(0,0,0,.45); }
+  .chip::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--rec); }
+  .chip[hidden] { display: none; }
+  .btns { display: inline-flex; gap: 4px; opacity: 0; transition: opacity .12s; pointer-events: auto; }
+  .tile:hover .btns, .tile:focus-within .btns { opacity: 1; }
+  .ib { width: 28px; height: 28px; border: 0; border-radius: 6px; background: rgba(0,0,0,.5); color: #fff; display: inline-flex;
+    align-items: center; justify-content: center; }
+  .ib:hover { background: rgba(0,0,0,.75); }
+  .ib svg { width: 16px; height: 16px; }
+  .tile:fullscreen { border-radius: 0; }
+  .empty-state { padding: 40px; color: var(--muted); text-align: center; }
+
+  /* dock */
+  .dock { padding: 12px 16px 16px; display: flex; flex-direction: column; gap: 10px; }
+  .transport { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .clock { font-weight: 650; font-size: 16px; font-variant-numeric: tabular-nums; margin: 0 6px 0 10px; }
+  .hint { color: var(--muted); font-size: 12px; }
+  .tl { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px 10px; }
+  .tl-body { position: relative; }
+  .axis, .lane { display: grid; grid-template-columns: 92px 1fr; align-items: center; gap: 8px; }
+  .axis { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; margin-bottom: 3px; }
   .ticks { position: relative; height: 14px; }
   .ticks span { position: absolute; transform: translateX(-50%); }
-  .ticks span:first-child { transform: none; }
-  .ticks span:last-child { transform: translateX(-100%); }
-  .lane { height: 30px; }
-  .lane + .lane { margin-top: 4px; }
-  .lane .label { font-size: 12px; font-weight: 600; color: var(--muted); cursor: pointer; user-select: none;
-    background: none; border: 0; text-align: left; padding: 0; height: 100%; }
-  .lane.sel .label { color: var(--accent); }
-  .track { position: relative; height: 100%; background: var(--head); border-radius: 5px; cursor: crosshair; overflow: hidden; }
-  .lane.sel .track { box-shadow: inset 0 0 0 1px var(--accent); }
-  .grid { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--line); opacity: .7; pointer-events: none; }
-  .blk { position: absolute; top: 5px; bottom: 5px; background: var(--seg); border-radius: 3px; min-width: 2px; pointer-events: none; }
-  .blk.live { background: var(--seg-live); }
-  .blk.cur { background: var(--seg-sel); box-shadow: 0 0 0 1px var(--ink); }
-  .head { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--play); pointer-events: none; z-index: 3; }
-  .hover { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--muted); pointer-events: none; display: none; z-index: 2; }
-  .tip { position: fixed; z-index: 10; pointer-events: none; background: var(--ink); color: var(--bg);
-    font-size: 12px; padding: 3px 7px; border-radius: 4px; font-variant-numeric: tabular-nums; display: none; }
-  .tl-wrap { position: relative; }
-  .overlay { position: absolute; left: 52px; right: 0; top: 0; bottom: 0; pointer-events: none; }
+  .ticks span.first { transform: none; }
+  .lane { height: 24px; }
+  .lane + .lane { margin-top: 3px; }
+  .lname { border: 0; background: none; text-align: left; padding: 0 4px; height: 100%; color: var(--muted); font-size: 12px;
+    font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-radius: 5px; }
+  .lname:hover { color: var(--ink); }
+  .lane.vis .lname { color: var(--accent); }
+  .track { position: relative; height: 100%; background: var(--soft); border-radius: 5px; cursor: pointer; overflow: hidden; touch-action: none; }
+  .lane.vis .track { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 55%, transparent); }
+  .grid-line { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--line); opacity: .8; pointer-events: none; }
+  .blk { position: absolute; top: 4px; bottom: 4px; background: var(--seg); border-radius: 3px; min-width: 2px; pointer-events: none; }
+  .blk.live { background: var(--rec); }
+  .overlay { position: absolute; left: 100px; right: 0; top: 17px; bottom: 0; pointer-events: none; }
+  .head { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--play); z-index: 3; }
+  .head::before { content: ""; position: absolute; top: -5px; left: -4px; border: 5px solid transparent; border-top-color: var(--play); }
+  .tip { position: fixed; z-index: 20; pointer-events: none; background: var(--ink); color: var(--bg); font-size: 12px; padding: 3px 7px;
+    border-radius: 4px; display: none; font-variant-numeric: tabular-nums; }
+  .files { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+  .files summary { cursor: pointer; padding: 10px 12px; font-weight: 600; list-style: none; display: flex; gap: 10px; align-items: baseline; }
+  .files summary::before { content: "\25B8"; color: var(--muted); }
+  .files[open] summary::before { content: "\25BE"; }
+  .files .sub { color: var(--muted); font-weight: 400; font-size: 12px; }
+  .scroll { overflow: auto; max-height: 280px; }
   table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
-  th, td { text-align: left; padding: 7px 12px; border-top: 1px solid var(--line); white-space: nowrap; }
-  th { color: var(--muted); font-weight: 500; font-size: 12px; border-top: 0; }
-  tbody tr { cursor: pointer; }
-  tbody tr:hover { background: var(--head); }
-  tbody tr.cur { background: var(--head); box-shadow: inset 3px 0 0 var(--accent); }
-  td a { color: var(--accent); text-decoration: none; margin-right: 10px; }
-  td a:hover { text-decoration: underline; }
-  .tbl-head { padding: 10px 12px; font-weight: 600; display: flex; align-items: baseline; gap: 10px; }
-  .empty { padding: 18px 12px; color: var(--muted); }
-  .tbl-scroll { overflow-x: auto; }
-  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--seg-live); margin-right: 6px; }
-  .keys { color: var(--muted); font-size: 12px; }
-  kbd { font: 11px ui-monospace, Menlo, monospace; background: var(--head); border: 1px solid var(--line);
-    border-radius: 4px; padding: 0 5px; }
-  @media (max-width: 640px) { .wrap { padding: 10px; } .stage { height: 36vh; } .keys { display: none; } }
+  th, td { text-align: left; padding: 6px 12px; border-top: 1px solid var(--line); white-space: nowrap; }
+  th { color: var(--muted); font-weight: 500; font-size: 12px; position: sticky; top: 0; background: var(--panel); }
+  tbody tr { cursor: pointer; } tbody tr:hover { background: var(--soft); }
+  td a { color: var(--accent); text-decoration: none; margin-right: 10px; } td a:hover { text-decoration: underline; }
+  .none { padding: 14px 12px; color: var(--muted); border-top: 1px solid var(--line); }
+  kbd { font: 11px ui-monospace, Menlo, monospace; background: var(--soft); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; }
+
+  @media (max-width: 760px) {
+    .top { gap: 8px; } .main { padding: 8px 10px 0; flex-direction: column; }
+    .main[data-mode="1"] .cams { width: auto; flex-direction: row; overflow-x: auto; }
+    .cam { white-space: nowrap; }
+    .grid[data-mode="8"] { --cols: 2; --rows: 4; }
+    .gridbox { min-height: 56vw; }
+    .dock { padding: 10px; } .hint { display: none; }
+    .axis, .lane { grid-template-columns: 56px 1fr; } .overlay { left: 64px; }
+  }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <h1>Recordings</h1>
-    <button id="prevDay" class="icon" aria-label="Previous day">&#8249;</button>
-    <input type="date" id="day" aria-label="Day">
-    <button id="nextDay" class="icon" aria-label="Next day">&#8250;</button>
-    <button id="today">Today</button>
-    <span class="tz" id="tz"></span>
+<div class="banner" id="banner" hidden>This browser may not play the recordings (they are HEVC/H.265). Use Safari, or Chrome/Edge with hardware decoding, or download a segment and open it in VLC.</div>
+
+<header class="top">
+  <span class="brand">Recordings</span>
+  <div class="group" role="group" aria-label="Layout">
+    <button id="m1" aria-pressed="false" title="One camera (1)" aria-label="One camera"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2"/></svg></button>
+    <button id="m4" aria-pressed="false" title="Four cameras (4)" aria-label="Four cameras"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg></button>
+    <button id="m8" aria-pressed="false" title="Eight cameras (8)" aria-label="Eight cameras"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="4" height="5" rx="1"/><rect x="8" y="6" width="4" height="5" rx="1"/><rect x="13" y="6" width="4" height="5" rx="1"/><rect x="18" y="6" width="3" height="5" rx="1"/><rect x="3" y="13" width="4" height="5" rx="1"/><rect x="8" y="13" width="4" height="5" rx="1"/><rect x="13" y="13" width="4" height="5" rx="1"/><rect x="18" y="13" width="3" height="5" rx="1"/></svg></button>
+  </div>
+  <span class="pager" id="pager" hidden>
+    <button class="btn icon" id="pgPrev" aria-label="Previous cameras"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" stroke="currentColor" stroke-width="2.2" fill="none"/></svg></button>
+    <span id="pgText"></span>
+    <button class="btn icon" id="pgNext" aria-label="Next cameras"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" stroke="currentColor" stroke-width="2.2" fill="none"/></svg></button>
+  </span>
+  <span class="spacer"></span>
+  <span class="tz" id="tz"></span>
+  <button class="btn icon" id="prevDay" aria-label="Previous day"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" stroke="currentColor" stroke-width="2.2" fill="none"/></svg></button>
+  <input type="date" id="day" aria-label="Day">
+  <button class="btn icon" id="nextDay" aria-label="Next day"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" stroke="currentColor" stroke-width="2.2" fill="none"/></svg></button>
+  <button class="btn" id="today">Today</button>
+</header>
+
+<main class="main" id="main" data-mode="4">
+  <nav class="cams" id="cams" aria-label="Cameras"></nav>
+  <div class="gridbox"><div class="grid" id="grid" data-mode="4"></div></div>
+</main>
+
+<section class="dock">
+  <div class="transport">
+    <button class="btn icon" id="back" title="Back 10 s (left arrow)" aria-label="Back 10 seconds"><svg viewBox="0 0 24 24"><path d="M12 5V2L7 6l5 4V7a6 6 0 1 1-6 6H4a8 8 0 1 0 8-8z"/></svg></button>
+    <button class="btn icon primary" id="playpause" title="Play / pause (space)" aria-label="Play"></button>
+    <button class="btn icon" id="fwd" title="Forward 10 s (right arrow)" aria-label="Forward 10 seconds"><svg viewBox="0 0 24 24" style="transform:scaleX(-1)"><path d="M12 5V2L7 6l5 4V7a6 6 0 1 1-6 6H4a8 8 0 1 0 8-8z"/></svg></button>
+    <select id="speed" aria-label="Speed" title="Playback speed"><option value="0.5">0.5x</option><option value="1" selected>1x</option><option value="2">2x</option><option value="4">4x</option><option value="8">8x</option></select>
+    <span class="clock" id="clock">-</span>
+    <button class="btn" id="latest" title="Jump to the newest recording">Latest</button>
     <span class="spacer"></span>
-    <label class="tz">Aspect
-      <select id="aspect"><option value="auto">Auto</option><option value="native">Native</option></select>
-    </label>
-    <label class="tz">Speed
-      <select id="speed"><option>1</option><option>2</option><option>4</option><option>8</option></select>
-    </label>
-  </header>
-
-  <section class="panel player">
-    <div class="stage">
-      <video id="v" controls playsinline preload="metadata"></video>
-      <div class="msg" id="msg">Click a timeline to start playback</div>
-    </div>
-    <div class="bar">
-      <span class="now" id="now">-</span>
-      <span class="sub" id="seginfo"></span>
-      <span class="spacer"></span>
-      <span class="keys"><kbd>1</kbd>-<kbd>9</kbd> camera &nbsp; <kbd>&larr;</kbd><kbd>&rarr;</kbd> 10s &nbsp; <kbd>[</kbd><kbd>]</kbd> segment &nbsp; <kbd>space</kbd> play</span>
-    </div>
-  </section>
-
-  <section class="panel timeline">
-    <div class="tl-wrap" id="tl">
+    <span class="group" role="group" aria-label="Timeline zoom">
+      <button data-zoom="1" aria-pressed="false">1h</button><button data-zoom="6" aria-pressed="false">6h</button><button data-zoom="24" aria-pressed="true">24h</button>
+    </span>
+  </div>
+  <div class="tl">
+    <div class="tl-body" id="tl">
       <div class="axis"><span></span><div class="ticks" id="ticks"></div></div>
       <div id="lanes"></div>
       <div class="overlay"><div class="head" id="head" hidden></div></div>
     </div>
-  </section>
-
-  <section class="panel">
-    <div class="tbl-head"><span id="tblTitle">Segments</span><span class="sub" id="tblSub"></span></div>
-    <div class="tbl-scroll" id="tbl"></div>
-  </section>
-</div>
+  </div>
+  <details class="files" id="files">
+    <summary><span id="fTitle">Segments and downloads</span><span class="sub" id="fSub"></span></summary>
+    <div class="scroll" id="fTable"></div>
+  </details>
+  <div class="hint"><kbd>space</kbd> play &nbsp; <kbd>&larr;</kbd><kbd>&rarr;</kbd> 10 s (shift: 1 min) &nbsp; <kbd>[</kbd><kbd>]</kbd> previous / next recording &nbsp; <kbd>1</kbd><kbd>4</kbd><kbd>8</kbd> layout &nbsp; <kbd>esc</kbd> back to grid &nbsp; <kbd>f</kbd> fullscreen. Click a camera to focus it.</div>
+</section>
 <div class="tip" id="tip"></div>
 
 <script>
 "use strict";
 const $ = (id) => document.getElementById(id);
-const v = $("v");
-const S = { data: null, day: startOfDay(new Date()), ch: null, seg: null, pendingSeek: null };
 const pad = (n) => String(n).padStart(2, "0");
+const ICON = {
+  play: '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>',
+  pause: '<svg viewBox="0 0 24 24"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>',
+  expand: '<svg viewBox="0 0 24 24"><path d="M4 4h6v2H6v4H4zM20 4v6h-2V6h-4V4zM4 20v-6h2v4h4v2zM20 20h-6v-2h4v-4h2z"/></svg>',
+  close: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.2" fill="none"/></svg>',
+  full: '<svg viewBox="0 0 24 24"><path d="M5 5h5v2H7v3H5zM19 5v5h-2V7h-3V5zM5 19v-5h2v3h3v2zM19 19h-5v-2h3v-3h2z"/></svg>',
+};
+const S = {
+  data: null, day: startOfDay(new Date()), mode: 4, prevMode: 4, focus: null, page: 0,
+  T: null, playing: false, rate: 1, zoom: 24, win: null, tiles: new Map(), master: null, noMasterMs: 0, drag: null, dragT: null,
+};
 
+/* ---------- time helpers ---------- */
 function startOfDay(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
-function dayBounds() { const a = S.day.getTime() / 1000; const b = new Date(S.day.getFullYear(), S.day.getMonth(), S.day.getDate() + 1).getTime() / 1000; return [a, b]; }
+function dayBounds() { const a = S.day.getTime() / 1000; return [a, new Date(S.day.getFullYear(), S.day.getMonth(), S.day.getDate() + 1).getTime() / 1000]; }
 function fmtTime(sec, withSec = true) { const d = new Date(sec * 1000); return pad(d.getHours()) + ":" + pad(d.getMinutes()) + (withSec ? ":" + pad(d.getSeconds()) : ""); }
+function fmtDate(d) { return d.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short", year: "numeric" }); }
 function fmtDur(sec) { sec = Math.max(0, Math.round(sec)); const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60; return h ? `${h}h ${pad(m)}m` : m ? `${m}m ${pad(s)}s` : `${s}s`; }
 function fmtSize(b) { return b >= 1e9 ? (b / 1e9).toFixed(2) + " GB" : (b / 1e6).toFixed(1) + " MB"; }
-function fmtDate(d) { return d.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short", year: "numeric" }); }
 function inputValue(d) { return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; }
-function stem(seg) { return seg.n.replace(/\.mkv$/, ""); }
-function segsFor(ch) { return (S.data && S.data.segments[ch]) || []; }
 function tzName() { const p = new Intl.DateTimeFormat(undefined, { timeZoneName: "short" }).formatToParts(new Date()).find((x) => x.type === "timeZoneName"); return p ? p.value : ""; }
 
-async function load() {
-  try {
-    const r = await fetch("/api/segments", { cache: "no-store" });
-    if (!r.ok) throw new Error(r.status);
-    S.data = await r.json();
-  } catch (e) { $("tblSub").textContent = "could not load segments (" + e.message + ")"; return; }
-  if (!S.ch) S.ch = S.data.channels[0];
-  renderAll();
+/* ---------- data ---------- */
+const stem = (seg) => seg.n.replace(/\.mkv$/, "");
+const segsFor = (ch) => (S.data && S.data.segments[ch]) || [];
+const camName = (ch) => (S.data && S.data.names && S.data.names[ch]) || "CH" + ch;
+function segAt(ch, t) { for (const s of segsFor(ch)) if (t >= s.s && t < s.e + 1) return s; return null; }
+function latestEnd(chs) { let m = 0; for (const ch of chs) { const l = segsFor(ch); if (l.length) m = Math.max(m, l[l.length - 1].e); } return m; }
+function nextStart(chs, t) { let best = null; for (const ch of chs) for (const s of segsFor(ch)) if (s.s > t && (best === null || s.s < best)) best = s.s; return best; }
+
+function visible() {
+  const all = S.data ? S.data.channels : [];
+  if (S.mode === 1) return S.focus ? [S.focus] : all.slice(0, 1);
+  if (S.mode === 4) return all.slice(S.page * 4, S.page * 4 + 4);
+  return all.slice(0, 8);
 }
 
-function renderAll() { renderTimeline(); renderTable(); updateHead(); }
+/* ---------- tiles ---------- */
+class Tile {
+  constructor(ch) {
+    this.ch = ch; this.seg = null; this.size = 0; this.pending = null;
+    const el = document.createElement("div"); el.className = "tile empty"; el.dataset.ch = ch;
+    el.innerHTML = '<video muted playsinline preload="auto"></video>' +
+      '<div class="ov top"><span class="lbl"></span><span class="chip" hidden>REC</span><span style="flex:1"></span>' +
+      '<span class="btns"><button class="ib" data-act="fs"></button><button class="ib" data-act="focus"></button></span></div>' +
+      '<div class="ov bot"><span class="tclock"></span></div><div class="msg"></div>';
+    this.el = el; this.v = el.querySelector("video"); this.lbl = el.querySelector(".lbl"); this.chip = el.querySelector(".chip");
+    this.msg = el.querySelector(".msg"); this.tclock = el.querySelector(".tclock");
+    this.bFs = el.querySelector('[data-act="fs"]'); this.bFocus = el.querySelector('[data-act="focus"]');
+    this.bFs.innerHTML = ICON.full; this.bFs.title = "Fullscreen"; this.bFs.setAttribute("aria-label", "Fullscreen");
+    el.addEventListener("click", () => { if (S.mode !== 1) focusChannel(ch); });
+    el.addEventListener("dblclick", () => { if (S.mode === 1) toggleFullscreen(el); });
+    this.bFs.addEventListener("click", (e) => { e.stopPropagation(); toggleFullscreen(el); });
+    this.bFocus.addEventListener("click", (e) => { e.stopPropagation(); if (S.mode === 1) backToGrid(); else focusChannel(ch); });
+    const v = this.v;
+    v.addEventListener("loadedmetadata", () => {
+      this.el.classList.toggle("anam", v.videoWidth / v.videoHeight < 1);  // half-width streams (e.g. 960x1080) are 16:9 content
+      if (this.pending != null) { v.currentTime = Math.min(this.pending, v.duration || this.pending); this.pending = null; }
+      v.playbackRate = S.rate;
+    });
+    v.addEventListener("error", () => { if (this.seg) { this.el.classList.add("err"); this.msg.textContent = "Cannot play this recording"; } });
+    v.addEventListener("playing", () => this.el.classList.remove("err"));
+  }
+  setLabels() {
+    this.lbl.textContent = camName(this.ch);
+    this.bFocus.innerHTML = S.mode === 1 ? ICON.close : ICON.expand;
+    this.bFocus.title = S.mode === 1 ? "Back to grid (Esc)" : "Focus this camera";
+    this.bFocus.setAttribute("aria-label", this.bFocus.title);
+  }
+  load(seg, offset) {
+    this.seg = seg; this.size = seg.b; this.pending = offset;
+    this.el.classList.remove("empty", "err");
+    this.v.src = `/media/${this.ch}/${stem(seg)}.mp4?v=${seg.b}`;
+  }
+  clear(text) {
+    if (this.seg) { this.v.pause(); this.v.removeAttribute("src"); this.v.load(); this.seg = null; this.pending = null; }
+    this.el.classList.add("empty"); this.el.classList.remove("err"); this.msg.textContent = text || "No recording";
+    this.chip.hidden = true; this.tclock.textContent = "";
+  }
+  follow(T) {
+    const seg = segAt(this.ch, T), v = this.v;
+    if (!seg) { this.clear(); return; }
+    this.chip.hidden = !seg.live;
+    if (!this.seg || this.seg.n !== seg.n) this.load(seg, T - seg.s);
+    else {
+      const off = T - seg.s;
+      if (seg.b !== this.size && (v.ended || (isFinite(v.duration) && off > v.duration - 0.5))) this.load(seg, off);   // live segment grew: fetch the newer snapshot
+      else if (v.ended) { v.pause(); return; }
+      else if (this.pending == null && !v.seeking && Math.abs(v.currentTime - off) > (S.playing ? 1.5 : 0.2)) v.currentTime = Math.min(off, v.duration || off);
+    }
+    if (v.playbackRate !== S.rate) v.playbackRate = S.rate;
+    if (S.playing) { if (v.paused && v.readyState >= 2 && !v.ended) v.play().catch(() => {}); } else if (!v.paused) v.pause();
+    this.tclock.textContent = fmtTime(T);
+  }
+  release() { this.clear(); }
+}
+function getTile(ch) { let t = S.tiles.get(ch); if (!t) { t = new Tile(ch); S.tiles.set(ch, t); } return t; }
 
-function renderTimeline() {
-  const [a, b] = dayBounds(), span = b - a;
+/* ---------- layout ---------- */
+function rebuildGrid() {
+  const grid = $("grid"), vis = visible();
+  $("main").dataset.mode = S.mode; grid.dataset.mode = S.mode; grid.textContent = "";
+  for (const ch of vis) { const t = getTile(ch); t.setLabels(); grid.appendChild(t.el); }
+  const slots = S.mode === 4 ? 4 : S.mode === 8 ? 8 : 0;
+  for (let i = vis.length; i < slots; i++) { const ph = document.createElement("div"); ph.className = "tile ph"; ph.innerHTML = '<div class="msg">No camera</div>'; grid.appendChild(ph); }
+  for (const [ch, t] of S.tiles) if (!vis.includes(ch)) t.release();
+  for (const [id, m] of [["m1", 1], ["m4", 4], ["m8", 8]]) $(id).setAttribute("aria-pressed", String(S.mode === m));
+  const n = S.data ? S.data.channels.length : 0, pages = Math.max(1, Math.ceil(n / 4));
+  $("pager").hidden = !(S.mode === 4 && pages > 1);
+  $("pgText").textContent = `Cameras ${S.page * 4 + 1}-${Math.min(n, S.page * 4 + 4)}`;
+  $("pgPrev").disabled = S.page === 0; $("pgNext").disabled = S.page >= pages - 1;
+  renderCams(); renderLanes(); renderFiles(); tick(0); writeHash();
+}
+function renderCams() {
+  const box = $("cams"); box.textContent = "";
+  if (!S.data) return;
+  for (const ch of S.data.channels) {
+    const b = document.createElement("button"); b.className = "cam"; if (S.mode === 1 && ch === visible()[0]) b.setAttribute("aria-current", "true");
+    const live = segsFor(ch).some((s) => s.live);
+    b.innerHTML = '<span class="dot' + (live ? " live" : "") + '"></span><span class="nm"></span>'; b.querySelector(".nm").textContent = camName(ch);
+    b.onclick = () => focusChannel(ch); box.appendChild(b);
+  }
+}
+function focusChannel(ch) { if (S.mode !== 1) S.prevMode = S.mode; S.mode = 1; S.focus = ch; rebuildGrid(); }
+function backToGrid() { if (S.mode !== 1) return; S.mode = S.prevMode === 8 ? 8 : 4; if (S.mode === 4 && S.data) S.page = Math.floor(Math.max(0, S.data.channels.indexOf(S.focus)) / 4); rebuildGrid(); }
+function setMode(m) { if (m === S.mode) return; if (m === 1) { S.focus = S.focus || visible()[0]; if (S.mode !== 1) S.prevMode = S.mode; } else S.prevMode = m; S.mode = m; rebuildGrid(); }
+function toggleFullscreen(el) {
+  if (document.fullscreenElement) { document.exitFullscreen(); return; }
+  const target = el || (visible()[0] && getTile(visible()[0]).el); if (target && target.requestFullscreen) target.requestFullscreen().catch(() => {});
+}
+
+/* ---------- timeline ---------- */
+function ensureWindow() {
+  const [a, b] = dayBounds();
+  if (S.zoom >= 24) { if (!S.win || S.win[0] !== a || S.win[1] !== b) { S.win = [a, b]; return true; } return false; }
+  const L = S.zoom * 3600, T = S.T == null ? a : S.T;
+  if (S.win && S.win[1] - S.win[0] === L && T >= S.win[0] + L * 0.05 && T <= S.win[1] - L * 0.05 && S.win[0] >= a && S.win[1] <= b) return false;
+  const s = Math.min(Math.max(T - L / 2, a), b - L); S.win = [s, s + L]; return true;
+}
+function renderLanes() {
+  if (!S.data) return;
+  ensureWindow();
+  const [wa, wb] = S.win, span = wb - wa, vis = visible();
   const ticks = $("ticks"); ticks.textContent = "";
-  for (let h = 0; h <= 24; h += 3) {
-    const s = document.createElement("span"); s.textContent = pad(h); s.style.left = (h / 24 * 100) + "%"; ticks.appendChild(s);
+  const step = span <= 3600 ? 600 : span <= 21600 ? 3600 : 10800;
+  for (let t = Math.ceil(wa / step) * step, first = true; t <= wb + 1; t += step) {
+    const s = document.createElement("span"); s.textContent = fmtTime(t, false); s.style.left = ((t - wa) / span * 100) + "%";
+    if (first) { s.classList.add("first"); first = false; } ticks.appendChild(s);
   }
   const lanes = $("lanes"); lanes.textContent = "";
   for (const ch of S.data.channels) {
-    const lane = document.createElement("div"); lane.className = "lane" + (ch === S.ch ? " sel" : "");
-    const label = document.createElement("button"); label.className = "label"; label.textContent = "CH" + ch;
-    label.setAttribute("aria-label", "Camera " + ch); label.onclick = () => switchChannel(ch);
+    const lane = document.createElement("div"); lane.className = "lane" + (vis.includes(ch) ? " vis" : "");
+    const nm = document.createElement("button"); nm.className = "lname"; nm.textContent = camName(ch); nm.title = "Focus " + camName(ch); nm.onclick = () => focusChannel(ch);
     const track = document.createElement("div"); track.className = "track";
-    for (let h = 1; h < 24; h++) { const g = document.createElement("div"); g.className = "grid"; g.style.left = (h / 24 * 100) + "%"; track.appendChild(g); }
+    for (let t = Math.ceil(wa / step) * step; t < wb; t += step) { const g = document.createElement("div"); g.className = "grid-line"; g.style.left = ((t - wa) / span * 100) + "%"; track.appendChild(g); }
     for (const sg of segsFor(ch)) {
-      if (sg.e < a || sg.s > b) continue;
-      const blk = document.createElement("div");
-      blk.className = "blk" + (sg.live ? " live" : "") + (S.seg && S.ch === ch && S.seg.n === sg.n ? " cur" : "");
-      blk.style.left = ((Math.max(sg.s, a) - a) / span * 100) + "%";
-      blk.style.width = ((Math.min(sg.e, b) - Math.max(sg.s, a)) / span * 100) + "%";
-      track.appendChild(blk);
+      if (sg.e < wa || sg.s > wb) continue;
+      const blk = document.createElement("div"); blk.className = "blk" + (sg.live ? " live" : "");
+      blk.style.left = ((Math.max(sg.s, wa) - wa) / span * 100) + "%"; blk.style.width = ((Math.min(sg.e, wb) - Math.max(sg.s, wa)) / span * 100) + "%"; track.appendChild(blk);
     }
-    const hov = document.createElement("div"); hov.className = "hover"; track.appendChild(hov);
-    track.addEventListener("pointermove", (ev) => { const t = timeAt(track, ev); hov.style.display = "block"; hov.style.left = ((t - a) / span * 100) + "%"; tip(ev, fmtTime(t)); });
-    track.addEventListener("pointerleave", () => { hov.style.display = "none"; $("tip").style.display = "none"; });
-    track.addEventListener("click", (ev) => seekWall(ch, timeAt(track, ev)));
-    lane.append(label, track); lanes.appendChild(lane);
+    track.addEventListener("pointerdown", (ev) => { track.setPointerCapture(ev.pointerId); S.drag = { ch, track }; dragTo(ev); });
+    track.addEventListener("pointermove", (ev) => { tip(ev, fmtTime(timeAt(track, ev))); if (S.drag && S.drag.track === track) dragTo(ev); });
+    track.addEventListener("pointerup", (ev) => { if (!S.drag) return; const d = S.drag; S.drag = null; seekFromLane(d.ch, timeAt(track, ev)); });
+    track.addEventListener("pointerleave", () => { $("tip").style.display = "none"; });
+    lane.append(nm, track); lanes.appendChild(lane);
   }
+  updateHead();
+}
+function timeAt(track, ev) { const r = track.getBoundingClientRect(); return S.win[0] + Math.min(Math.max((ev.clientX - r.left) / r.width, 0), 1) * (S.win[1] - S.win[0]); }
+function tip(ev, text) { const t = $("tip"); t.textContent = text; t.style.display = "block"; t.style.left = (ev.clientX + 12) + "px"; t.style.top = (ev.clientY - 30) + "px"; }
+function dragTo(ev) { S.dragT = timeAt(S.drag.track, ev); $("clock").textContent = fmtDate(startOfDay(new Date(S.dragT * 1000))) + "  " + fmtTime(S.dragT); placeHead(S.dragT); }
+function placeHead(t) {
+  const head = $("head"); if (!S.win || t == null || t < S.win[0] || t > S.win[1]) { head.hidden = true; return; }
+  head.hidden = false; head.style.left = ((t - S.win[0]) / (S.win[1] - S.win[0]) * 100) + "%";
+  const body = $("tl").getBoundingClientRect(), lr = $("lanes").getBoundingClientRect();
+  head.style.top = (lr.top - body.top - 17) + "px"; head.style.height = lr.height + "px"; head.style.bottom = "auto";
+}
+function updateHead() { placeHead(S.drag ? S.dragT : S.T); }
+function seekFromLane(ch, t) {
+  // A click in a gap snaps to the nearest recording of that camera (within 10 minutes).
+  if (!segAt(ch, t)) { let best = null, bd = 600; for (const s of segsFor(ch)) { const d = t < s.s ? s.s - t : t > s.e ? t - s.e : 0; if (d < bd) { bd = d; best = s; } } if (best) t = t < best.s ? best.s : best.e - 1; }
+  seekTo(t);
 }
 
-function timeAt(track, ev) { const r = track.getBoundingClientRect(); const [a, b] = dayBounds(); return a + Math.min(Math.max((ev.clientX - r.left) / r.width, 0), 1) * (b - a); }
-function tip(ev, text) { const t = $("tip"); t.textContent = text; t.style.display = "block"; t.style.left = (ev.clientX + 12) + "px"; t.style.top = (ev.clientY - 28) + "px"; }
+/* ---------- playback clock ---------- */
+function seekTo(t) {
+  S.T = t; S.master = null;
+  const d = startOfDay(new Date(t * 1000));
+  if (d.getTime() !== S.day.getTime()) { S.day = d; $("day").value = inputValue(d); $("nextDay").disabled = d >= startOfDay(new Date()); S.win = null; renderLanes(); renderFiles(); }
+  tick(0); writeHash();
+}
+function pickMaster() {
+  const tiles = visible().map(getTile), ok = (t) => t.seg && !t.v.ended && !t.v.paused && t.v.readyState >= 3 && t.pending == null && !t.v.seeking;
+  const cur = S.master && tiles.find((t) => t.ch === S.master);
+  if (cur && ok(cur)) return cur;
+  const m = tiles.find(ok); S.master = m ? m.ch : null; return m || null;
+}
+let lastTick = performance.now();
+function tick(dtOverride) {
+  const now = performance.now(), dt = dtOverride === 0 ? 0 : (now - lastTick) / 1000; lastTick = now;
+  if (S.T == null || !S.data) return;
+  const vis = visible();
+  if (S.playing) {
+    const m = pickMaster();
+    if (m) { S.T = m.seg.s + m.v.currentTime; S.noMasterMs = 0; }
+    else {
+      S.T += dt * S.rate; S.noMasterMs += dt * 1000;
+      if (!vis.some((ch) => segAt(ch, S.T)) && S.noMasterMs > 1500) { const n = nextStart(vis, S.T); if (n) S.T = n; else { S.playing = false; setPlayIcon(); } }
+    }
+    const end = latestEnd(vis); if (end && S.T > end + 1) { S.T = end; S.playing = false; setPlayIcon(); writeHash(); }
+  }
+  for (const ch of vis) getTile(ch).follow(S.T);
+  if (!S.drag) $("clock").textContent = fmtDate(startOfDay(new Date(S.T * 1000))) + "  " + fmtTime(S.T);
+  if (ensureWindow()) renderLanes(); else updateHead();
+}
+function setPlayIcon() { const b = $("playpause"); b.innerHTML = S.playing ? ICON.pause : ICON.play; b.setAttribute("aria-label", S.playing ? "Pause" : "Play"); }
+function togglePlay() {
+  if (S.T == null) return;
+  S.playing = !S.playing;
+  if (S.playing && S.T >= latestEnd(visible()) - 1) seekTo(Math.max(latestEnd(visible()) - 600, 0));
+  setPlayIcon(); tick(0); writeHash();
+}
+function step(sec) { if (S.T != null) seekTo(S.T + sec); }
+function jumpSegment(dir) {
+  if (S.T == null) return; let best = null;
+  for (const ch of visible()) for (const s of segsFor(ch)) {
+    if (dir > 0 && s.s > S.T + 1 && (best === null || s.s < best)) best = s.s;
+    if (dir < 0 && s.s < S.T - 3 && (best === null || s.s > best)) best = s.s;
+  }
+  if (best !== null) seekTo(best);
+}
+function goLatest() { const l = latestEnd(visible()); if (l) seekTo(Math.max(l - 15, 0)); }
 
-function renderTable() {
-  const [a, b] = dayBounds();
-  const rows = segsFor(S.ch).filter((s) => s.e >= a && s.s < b);
-  $("tblTitle").textContent = "Camera " + (S.ch || "");
-  $("tblSub").textContent = rows.length ? `${rows.length} segments, ${fmtSize(rows.reduce((n, r) => n + r.b, 0))}` : "";
-  const box = $("tbl"); box.textContent = "";
-  if (!rows.length) { const d = document.createElement("div"); d.className = "empty"; d.textContent = "No recordings on " + fmtDate(S.day) + " for this camera."; box.appendChild(d); return; }
-  const t = document.createElement("table");
-  t.innerHTML = "<thead><tr><th>Time</th><th>Length</th><th>Size</th><th>Download</th></tr></thead>";
+/* ---------- files drawer ---------- */
+function renderFiles() {
+  if (!S.data || !visible().length) return;
+  const ch = visible()[0], [a, b] = dayBounds(), rows = segsFor(ch).filter((s) => s.e >= a && s.s < b);
+  $("fTitle").textContent = "Segments and downloads: " + camName(ch);
+  $("fSub").textContent = rows.length ? `${rows.length} on ${fmtDate(S.day)}, ${fmtSize(rows.reduce((n, r) => n + r.b, 0))}` : "";
+  const box = $("fTable"); box.textContent = "";
+  if (!rows.length) { const d = document.createElement("div"); d.className = "none"; d.textContent = "No recordings on " + fmtDate(S.day) + " for this camera."; box.appendChild(d); return; }
+  const t = document.createElement("table"); t.innerHTML = "<thead><tr><th>Time</th><th>Length</th><th>Size</th><th>Download</th></tr></thead>";
   const tb = document.createElement("tbody");
   for (const r of rows.slice().reverse()) {
-    const tr = document.createElement("tr"); if (S.seg && S.seg.n === r.n) tr.className = "cur";
-    const c1 = document.createElement("td");
-    if (r.live) { const dt = document.createElement("span"); dt.className = "dot"; dt.title = "recording now"; c1.appendChild(dt); }
-    c1.appendChild(document.createTextNode(fmtTime(r.s) + " - " + fmtTime(r.e)));
+    const tr = document.createElement("tr"), c1 = document.createElement("td");
+    c1.textContent = fmtTime(r.s) + " - " + fmtTime(r.e) + (r.live ? "  (recording)" : "");
     const c2 = document.createElement("td"); c2.textContent = fmtDur(r.e - r.s);
     const c3 = document.createElement("td"); c3.textContent = fmtSize(r.b);
     const c4 = document.createElement("td");
-    for (const [label, href] of [["mkv", `/raw/${S.ch}/${stem(r)}.mkv`], ["mp4", `/media/${S.ch}/${stem(r)}.mp4`]]) {
-      const l = document.createElement("a"); l.textContent = label; l.href = href; if (label === "mp4") l.download = `ch${S.ch}-${stem(r)}.mp4`; l.onclick = (e) => e.stopPropagation(); c4.appendChild(l);
+    for (const [label, href] of [["mkv", `/raw/${ch}/${stem(r)}.mkv`], ["mp4", `/media/${ch}/${stem(r)}.mp4`]]) {
+      const l = document.createElement("a"); l.textContent = label; l.href = href; if (label === "mp4") l.download = `${camName(ch)}-${stem(r)}.mp4`; l.onclick = (e) => e.stopPropagation(); c4.appendChild(l);
     }
-    tr.append(c1, c2, c3, c4); tr.onclick = () => play(S.ch, r, 0); tb.appendChild(tr);
+    tr.append(c1, c2, c3, c4); tr.onclick = () => seekTo(r.s); tb.appendChild(tr);
   }
   t.appendChild(tb); box.appendChild(t);
 }
 
-function findSeg(ch, t) {
-  const list = segsFor(ch);
-  let best = null, bestD = Infinity;
-  for (const s of list) {
-    const d = t < s.s ? s.s - t : t > s.e ? t - s.e : 0;
-    if (d < bestD) { best = s; bestD = d; }
+/* ---------- misc ---------- */
+function writeHash() {
+  if (S.T == null) return;
+  try { history.replaceState(null, "", `#v=${S.mode}&ch=${S.focus || ""}&t=${Math.round(S.T)}`); } catch (e) { /* ignore */ }
+}
+function setDay(d, keepTime) {
+  S.day = startOfDay(d); $("day").value = inputValue(S.day); $("nextDay").disabled = S.day >= startOfDay(new Date());
+  if (!keepTime && S.data) {
+    const [a, b] = dayBounds(); let first = null;
+    for (const ch of S.data.channels) for (const s of segsFor(ch)) if (s.e >= a && s.s < b && (first === null || s.s < first)) first = s.s;
+    if (first !== null) { S.T = Math.max(first, a); S.master = null; }
   }
-  return bestD <= 600 ? best : null;  // within 10 minutes of a recording
+  S.win = null; if (S.data) { renderLanes(); renderFiles(); tick(0); }
+}
+const shiftDay = (n) => setDay(new Date(S.day.getFullYear(), S.day.getMonth(), S.day.getDate() + n));
+
+async function load() {
+  try { const r = await fetch("/api/segments", { cache: "no-store" }); if (!r.ok) throw new Error(r.status); S.data = await r.json(); }
+  catch (e) { $("fSub").textContent = "could not load segments (" + e.message + ")"; return false; }
+  return true;
+}
+async function refresh() {
+  const first = !S.data; if (!(await load())) return;
+  if (first) {
+    const h = location.hash.match(/v=(\d)&ch=(\d*)&t=(\d+)/);
+    if (h && [1, 4, 8].includes(Number(h[1]))) { S.mode = Number(h[1]); S.prevMode = S.mode === 1 ? 4 : S.mode; if (h[2] && S.data.channels.includes(h[2])) S.focus = h[2]; }
+    if (S.mode === 1 && !S.focus) S.mode = 4;
+    const end = latestEnd(S.data.channels);
+    S.T = h ? Number(h[3]) : (end ? Math.max(end - 20, 0) : null);
+    if (S.T != null) setDay(new Date(S.T * 1000), true);
+    rebuildGrid();
+    if (S.T == null) { $("grid").innerHTML = '<div class="empty-state">No recordings yet. They appear here as soon as the first segment is written.</div>'; }
+  } else { renderCams(); renderLanes(); renderFiles(); }
 }
 
-function seekWall(ch, t) {
-  const s = findSeg(ch, t);
-  if (!s) { S.ch = ch; stopWith(`No recording near ${fmtTime(t)} on camera ${ch}`); renderAll(); return; }
-  play(ch, s, Math.min(Math.max(t - s.s, 0), Math.max(s.e - s.s - 1, 0)));
-}
-
-function switchChannel(ch) { const t = wallNow(); if (t) seekWall(ch, t); else { S.ch = ch; renderAll(); } }
-
-function play(ch, seg, offset) {
-  S.ch = ch; S.seg = seg; S.pendingSeek = offset;
-  $("msg").hidden = false; $("msg").textContent = "Preparing camera " + ch + " " + fmtTime(seg.s + offset) + "...";
-  v.src = `/media/${ch}/${stem(seg)}.mp4`;
-  v.playbackRate = Number($("speed").value);
-  v.play().catch(() => {});
-  history.replaceState(null, "", `#ch=${ch}&t=${Math.round(seg.s + offset)}`);
-  renderAll();
-}
-
-function stopWith(text) { v.removeAttribute("src"); v.load(); S.seg = null; $("msg").hidden = false; $("msg").textContent = text; $("now").textContent = "-"; $("seginfo").textContent = ""; }
-function wallNow() { return S.seg ? S.seg.s + (v.currentTime || 0) : null; }
-
-// Many DVRs record 1080p as a half-width 960x1080 stream (non-square pixels). Browsers ignore that, so in Auto
-// mode a portrait-shaped stream is shown at double width (16:9). Native shows the stored pixels as they are.
-function fitVideo() {
-  const stage = document.querySelector(".stage");
-  if (!v.videoWidth) { v.style.width = v.style.height = ""; return; }
-  let dar = v.videoWidth / v.videoHeight;
-  if ($("aspect").value === "auto" && dar < 1) dar *= 2;
-  const w = Math.min(stage.clientWidth, stage.clientHeight * dar);
-  v.style.width = Math.round(w) + "px"; v.style.height = Math.round(w / dar) + "px";
-}
-$("aspect").value = (() => { try { return localStorage.getItem("aspect") || "auto"; } catch (e) { return "auto"; } })();
-$("aspect").addEventListener("change", () => { try { localStorage.setItem("aspect", $("aspect").value); } catch (e) {} fitVideo(); });
-window.addEventListener("resize", fitVideo);
-v.addEventListener("resize", fitVideo);
-
-v.addEventListener("loadedmetadata", () => { fitVideo(); if (S.pendingSeek != null) { v.currentTime = S.pendingSeek; S.pendingSeek = null; } v.playbackRate = Number($("speed").value); });
-v.addEventListener("playing", () => { $("msg").hidden = true; });
-v.addEventListener("error", () => { if (!S.seg) return; $("msg").hidden = false; $("msg").textContent = "This browser cannot play the recording (HEVC needs Safari or Chrome with hardware decoding). Use the download links below, or open it in VLC."; });
-v.addEventListener("ended", () => stepSegment(1, true));
-$("speed").addEventListener("change", () => { v.playbackRate = Number($("speed").value); });
-
-function stepSegment(dir, auto) {
-  if (!S.seg) return;
-  const list = segsFor(S.ch), i = list.findIndex((s) => s.n === S.seg.n), n = list[i + dir];
-  if (!n) { if (auto) $("msg").hidden = false, $("msg").textContent = "End of recordings"; return; }
-  if (auto && dir > 0 && n.s - S.seg.e > 120) { stopWith(`Gap in recordings until ${fmtTime(n.s)}`); return; }
-  play(S.ch, n, 0);
-}
-
-function updateHead() {
-  const head = $("head"), t = wallNow(), [a, b] = dayBounds();
-  if (t == null || t < a || t > b) { head.hidden = true; } else {
-    head.hidden = false; head.style.left = ((t - a) / (b - a) * 100) + "%";
-    const first = document.querySelector(".lane"), tl = $("tl").getBoundingClientRect();
-    if (first) { const lr = $("lanes").getBoundingClientRect(); head.style.top = (lr.top - tl.top) + "px"; head.style.height = lr.height + "px"; head.style.bottom = "auto"; }
-  }
-  if (S.seg) {
-    const d = new Date(t * 1000);
-    $("now").textContent = `CH${S.ch}  ${fmtDate(startOfDay(d))}  ${fmtTime(t)}`;
-    $("seginfo").textContent = `segment ${fmtTime(S.seg.s)} - ${fmtTime(S.seg.e)}${S.seg.live ? " (recording now)" : ""}`;
-  }
-}
-setInterval(updateHead, 250);
-
-function setDay(d) { S.day = startOfDay(d); $("day").value = inputValue(S.day); $("nextDay").disabled = S.day >= startOfDay(new Date()); if (S.data) renderAll(); }
-$("prevDay").onclick = () => setDay(new Date(S.day.getFullYear(), S.day.getMonth(), S.day.getDate() - 1));
-$("nextDay").onclick = () => setDay(new Date(S.day.getFullYear(), S.day.getMonth(), S.day.getDate() + 1));
-$("today").onclick = () => setDay(new Date());
+/* ---------- wiring ---------- */
+$("m1").onclick = () => setMode(1); $("m4").onclick = () => setMode(4); $("m8").onclick = () => setMode(8);
+$("pgPrev").onclick = () => { S.page = Math.max(0, S.page - 1); rebuildGrid(); };
+$("pgNext").onclick = () => { S.page++; rebuildGrid(); };
+$("playpause").onclick = togglePlay; $("back").onclick = () => step(-10); $("fwd").onclick = () => step(10);
+$("speed").onchange = (e) => { S.rate = Number(e.target.value); };
+$("latest").onclick = goLatest;
+$("prevDay").onclick = () => shiftDay(-1); $("nextDay").onclick = () => shiftDay(1); $("today").onclick = () => { setDay(new Date(), true); goLatest(); };
 $("day").onchange = (e) => { const p = e.target.value.split("-").map(Number); if (p.length === 3 && p[0]) setDay(new Date(p[0], p[1] - 1, p[2])); };
-
+for (const b of document.querySelectorAll("[data-zoom]")) b.onclick = () => { S.zoom = Number(b.dataset.zoom); S.win = null; for (const x of document.querySelectorAll("[data-zoom]")) x.setAttribute("aria-pressed", String(x === b)); renderLanes(); };
 document.addEventListener("keydown", (e) => {
   if (e.target.matches("input, select") || e.metaKey || e.ctrlKey || e.altKey) return;
-  if (/^[1-9]$/.test(e.key) && S.data && S.data.channels.includes(e.key)) { switchChannel(e.key); e.preventDefault(); }
-  else if (e.key === " " && S.seg) { v.paused ? v.play() : v.pause(); e.preventDefault(); }
-  else if (e.key === "ArrowLeft" && S.seg) { v.currentTime = Math.max(0, v.currentTime - (e.shiftKey ? 60 : 10)); e.preventDefault(); }
-  else if (e.key === "ArrowRight" && S.seg) { v.currentTime += (e.shiftKey ? 60 : 10); e.preventDefault(); }
-  else if (e.key === "[") stepSegment(-1, false);
-  else if (e.key === "]") stepSegment(1, false);
+  const k = e.key;
+  if (k === " ") { togglePlay(); e.preventDefault(); }
+  else if (k === "ArrowLeft") { step(e.shiftKey ? -60 : -10); e.preventDefault(); }
+  else if (k === "ArrowRight") { step(e.shiftKey ? 60 : 10); e.preventDefault(); }
+  else if (k === "[") jumpSegment(-1); else if (k === "]") jumpSegment(1);
+  else if (k === "1") setMode(1); else if (k === "4") setMode(4); else if (k === "8") setMode(8);
+  else if (k === "Escape") backToGrid(); else if (k === "f" || k === "F") toggleFullscreen();
 });
+window.addEventListener("resize", updateHead);
+document.addEventListener("fullscreenchange", () => setTimeout(updateHead, 50));
+setInterval(() => tick(), 100);
+setInterval(() => { if (!document.hidden) refresh(); }, 20000);
 
 $("tz").textContent = "times in " + tzName();
-setDay(new Date());
-load().then(() => {
-  const m = location.hash.match(/ch=(\d+)&t=(\d+)/);
-  if (m && S.data && S.data.channels.includes(m[1])) { const t = Number(m[2]); setDay(new Date(t * 1000)); seekWall(m[1], t); }
-});
-setInterval(() => { if (!document.hidden) load(); }, 20000);
-window.addEventListener("resize", updateHead);
+setPlayIcon();
+if (!document.createElement("video").canPlayType('video/mp4; codecs="hvc1.1.6.L93.B0"')) $("banner").hidden = false;
+setDay(new Date(), true);
+refresh();
 </script>
 </body>
 </html>

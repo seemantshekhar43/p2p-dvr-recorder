@@ -8,6 +8,7 @@ segment) into a size-capped cache and then served with Range support.
 Environment (shared with the other nvr-* tools, see deploy/nvr-recorder.env.example):
   REC_DIR           recordings root                          (default /mnt/recordings)
   CHANNELS          channels to show                         (default "1 2 3 4 5 6")
+  VIEWER_NAMES      camera names, comma separated, in CHANNELS order, e.g. "Gate,Hall,Garden" (default: CH1, CH2, ...)
   VIEWER_BIND       listen address                           (default 127.0.0.1)
   VIEWER_PORT       listen port                              (default 8080)
   VIEWER_USER       basic-auth user                          (default viewer)
@@ -46,6 +47,8 @@ class Config:
         g = lambda k, d: e.get(k) if e.get(k) not in (None, "") else d
         self.rec_dir = g("REC_DIR", "/mnt/recordings")
         self.channels = g("CHANNELS", "1 2 3 4 5 6").split()
+        names = [n.strip() for n in g("VIEWER_NAMES", "").split(",")]
+        self.names = {ch: n for ch, n in zip(self.channels, names) if n}
         self.bind = g("VIEWER_BIND", "127.0.0.1")
         self.port = int(g("VIEWER_PORT", "8080"))
         self.user = g("VIEWER_USER", "viewer")
@@ -264,7 +267,7 @@ def make_handler(cfg, remuxer):
                     return self._send_bytes(HTTPStatus.INTERNAL_SERVER_ERROR, b"index.html missing", "text/plain", head)
                 return self._send_bytes(HTTPStatus.OK, body, "text/html; charset=utf-8", head)
             if path == "/api/segments":
-                body = json.dumps({"now": int(time.time()), "channels": cfg.channels,
+                body = json.dumps({"now": int(time.time()), "channels": cfg.channels, "names": cfg.names,
                                    "segments": list_segments(cfg)}).encode()
                 return self._send_bytes(HTTPStatus.OK, body, "application/json", head)
             m = re.match(r"^/(media|raw)/(\d{1,3})/(\d{8}-\d{6})\.(mp4|mkv)$", path)
