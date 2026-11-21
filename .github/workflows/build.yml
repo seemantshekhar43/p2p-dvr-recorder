@@ -7,31 +7,40 @@ on:
   workflow_dispatch:
 
 jobs:
-  linux:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - arch: amd64
-            runner: ubuntu-24.04
-          # Arm runners are free only for public repos.
-          - arch: arm64
-            runner: ubuntu-24.04-arm
-    # Skip the arm64 build while the repo is private.
-    if: matrix.arch == 'amd64' || !github.event.repository.private
-    runs-on: ${{ matrix.runner }}
+  amd64:
+    runs-on: ubuntu-24.04
     container: swift:6.0-noble
     steps:
       - uses: actions/checkout@v4
       - run: apt-get update && apt-get install -y --no-install-recommends zlib1g-dev
       - run: swift test
       - run: swift build -c release --static-swift-stdlib --product nvr-tunnel
-      - run: cp .build/release/nvr-tunnel nvr-tunnel-linux-${{ matrix.arch }}
+      - run: cp .build/release/nvr-tunnel nvr-tunnel-linux-amd64
       - uses: actions/upload-artifact@v4
         with:
-          name: nvr-tunnel-linux-${{ matrix.arch }}
-          path: nvr-tunnel-linux-${{ matrix.arch }}
+          name: nvr-tunnel-linux-amd64
+          path: nvr-tunnel-linux-amd64
       - if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: nvr-tunnel-linux-${{ matrix.arch }}
+          files: nvr-tunnel-linux-amd64
+
+  # Arm runners are free only for public repos, so skip this job while the repo is private.
+  arm64:
+    if: github.event.repository.private == false
+    runs-on: ubuntu-24.04-arm
+    container: swift:6.0-noble
+    steps:
+      - uses: actions/checkout@v4
+      - run: apt-get update && apt-get install -y --no-install-recommends zlib1g-dev
+      - run: swift test
+      - run: swift build -c release --static-swift-stdlib --product nvr-tunnel
+      - run: cp .build/release/nvr-tunnel nvr-tunnel-linux-arm64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nvr-tunnel-linux-arm64
+          path: nvr-tunnel-linux-arm64
+      - if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: nvr-tunnel-linux-arm64
