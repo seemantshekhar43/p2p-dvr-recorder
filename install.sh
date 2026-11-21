@@ -3,8 +3,8 @@
 #
 #   ./install.sh [--binary PATH] [--prefix DIR] [--user NAME] [--uid N] [--env-file PATH] [--skip-deps] [--no-start]
 #
-# Binary: --binary PATH, else dist/nvr-tunnel-linux-<arch> (see scripts/build-release.sh),
-# else built with `swift build` if a Swift toolchain is installed.
+# Binary: --binary PATH, else dist/nvr-tunnel-linux-<arch> (see scripts/build-release.sh), else the
+# already installed one (script-only upgrade), else built with `swift build` if Swift is installed.
 # Safe to re-run: an existing env file is never overwritten; services are restarted
 # so a new binary takes effect.
 set -euo pipefail
@@ -38,6 +38,7 @@ fi
 if [ -z "$BIN" ]; then
   case $(uname -m) in x86_64) arch=amd64 ;; aarch64) arch=arm64 ;; *) arch=$(uname -m) ;; esac
   if [ -f "dist/nvr-tunnel-linux-$arch" ]; then BIN="dist/nvr-tunnel-linux-$arch"
+  elif [ -x "$PREFIX/bin/nvr-tunnel" ]; then BIN="$PREFIX/bin/nvr-tunnel"; say "no --binary given: keeping the installed nvr-tunnel"
   elif command -v swift >/dev/null; then
     say "building nvr-tunnel with swift"
     swift build -c release --static-swift-stdlib --product nvr-tunnel
@@ -50,7 +51,7 @@ fi
 
 say "installing binaries to $PREFIX/bin"
 install -d "$PREFIX/bin"
-install -m 755 "$BIN" "$PREFIX/bin/nvr-tunnel"
+[ "$BIN" -ef "$PREFIX/bin/nvr-tunnel" ] || install -m 755 "$BIN" "$PREFIX/bin/nvr-tunnel"
 install -m 755 deploy/bin/nvr-record deploy/bin/nvr-retention deploy/bin/nvr-health "$PREFIX/bin/"
 install -m 755 viewer/nvr_viewer.py "$PREFIX/bin/nvr-viewer"
 install -d "$PREFIX/share/nvr-viewer"
