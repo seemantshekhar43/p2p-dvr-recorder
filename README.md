@@ -32,6 +32,18 @@ Live end-to-end (needs `CAM_SERIAL` and `CAM_PASSWORD` in the environment, never
     docker run --rm -e CAM_SERIAL -e CAM_PASSWORD -v "$PWD":/src -v nvr-build:/tmp/b nvr-swift-dev /src/scripts/linux-e2e.sh
     docker run -d  -e CAM_SERIAL -e CAM_PASSWORD -v "$PWD":/src -v nvr-build:/tmp/b -v "$PWD/sandbox/soak-out":/out nvr-swift-dev /src/scripts/soak.sh 30 10
 
+## Web viewer
+
+`nvr-viewer` (Python 3, standard library only) serves a page with one timeline lane per channel for the selected
+day. Click a lane to play from that moment, press `1`-`9` to switch camera at the same wall-clock time, `[` `]` for
+the previous/next segment, arrows to skip. MKV segments are remuxed to MP4 on first request (`ffmpeg -c copy`, about
+0.2 s) into a size-capped cache so browsers can play them. HEVC needs Safari or Chrome with hardware decoding; every
+segment also has a download link. Half-width streams (for example 960x1080) are shown at 16:9 by default (Aspect: Auto).
+
+It listens on `127.0.0.1:8080` with no auth by default. To reach it from other machines set `VIEWER_BIND`,
+`VIEWER_USER` and `VIEWER_PASSWORD` in the env file, and put it behind a reverse proxy with TLS. Deep links look like
+`/#ch=2&t=<epoch seconds>`.
+
 ## Install (Debian / Ubuntu, as root)
 
     # 1. Get a binary: build on any machine with Docker, for the target CPU (amd64 or arm64)
