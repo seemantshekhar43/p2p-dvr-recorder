@@ -38,8 +38,9 @@
   .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
   .player { display: flex; flex-direction: column; overflow: hidden; }
   .stage { background: #000; display: flex; align-items: center; justify-content: center;
-    height: min(62vh, 640px); position: relative; border-radius: 10px 10px 0 0; }
-  video { max-width: 100%; max-height: 100%; background: #000; }
+    height: min(56vh, 560px); position: relative; border-radius: 10px 10px 0 0; }
+  video { width: 100%; height: 100%; object-fit: contain; background: #000; }
+  video:not([src]) { visibility: hidden; }
   .msg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
     color: #cfd2d6; text-align: center; padding: 24px; pointer-events: none; }
   .msg[hidden] { display: none; }
@@ -86,7 +87,7 @@
   .keys { color: var(--muted); font-size: 12px; }
   kbd { font: 11px ui-monospace, Menlo, monospace; background: var(--head); border: 1px solid var(--line);
     border-radius: 4px; padding: 0 5px; }
-  @media (max-width: 640px) { .wrap { padding: 10px; } .stage { height: 42vh; } .keys { display: none; } }
+  @media (max-width: 640px) { .wrap { padding: 10px; } .stage { height: 36vh; } .keys { display: none; } }
 </style>
 </head>
 <body>
@@ -166,7 +167,7 @@ function renderTimeline() {
   const [a, b] = dayBounds(), span = b - a;
   const ticks = $("ticks"); ticks.textContent = "";
   for (let h = 0; h <= 24; h += 3) {
-    const s = document.createElement("span"); s.textContent = pad(h % 24) + (h === 24 ? ":00" : ""); s.style.left = (h / 24 * 100) + "%"; ticks.appendChild(s);
+    const s = document.createElement("span"); s.textContent = pad(h); s.style.left = (h / 24 * 100) + "%"; ticks.appendChild(s);
   }
   const lanes = $("lanes"); lanes.textContent = "";
   for (const ch of S.data.channels) {
