@@ -32,7 +32,7 @@ if [ "$DEPS" -eq 1 ]; then
   command -v apt-get >/dev/null || { echo "no apt-get; install ffmpeg and curl yourself and pass --skip-deps" >&2; exit 1; }
   say "installing ffmpeg and curl"
   apt-get update -qq
-  DEBIAN_FRONTEND=noninteractive apt-get install -y -qq ffmpeg curl ca-certificates >/dev/null
+  DEBIAN_FRONTEND=noninteractive apt-get install -y -qq ffmpeg curl ca-certificates python3 >/dev/null
 fi
 
 if [ -z "$BIN" ]; then
@@ -52,6 +52,9 @@ say "installing binaries to $PREFIX/bin"
 install -d "$PREFIX/bin"
 install -m 755 "$BIN" "$PREFIX/bin/nvr-tunnel"
 install -m 755 deploy/bin/nvr-record deploy/bin/nvr-retention deploy/bin/nvr-health "$PREFIX/bin/"
+install -m 755 viewer/nvr_viewer.py "$PREFIX/bin/nvr-viewer"
+install -d "$PREFIX/share/nvr-viewer"
+install -m 644 viewer/index.html "$PREFIX/share/nvr-viewer/index.html"
 
 # --uid pins the uid, so on an unprivileged LXC you know the host-side owner of a bind mount
 # (host uid = 100000 + container uid).
@@ -79,7 +82,7 @@ fi
 
 say "installing systemd units"
 for u in deploy/systemd/*; do
-  sed -e "s#/usr/local/bin#$PREFIX/bin#g" -e "s#^User=nvr#User=$SVC_USER#" -e "s#^Group=nvr#Group=$SVC_USER#" \
+  sed -e "s#/usr/local/#$PREFIX/#g" -e "s#^User=nvr#User=$SVC_USER#" -e "s#^Group=nvr#Group=$SVC_USER#" \
       -e "s#/etc/nvr-recorder/env#$ENV_FILE#g" "$u" >"/etc/systemd/system/$(basename "$u")"
 done
 systemctl daemon-reload
@@ -92,9 +95,10 @@ fi
 [ "$START" -eq 1 ] || { say "--no-start: units installed, nothing enabled"; exit 0; }
 
 say "enabling services"
-systemctl enable nvr-tunnel.service nvr-retention.timer nvr-health.timer >/dev/null
+systemctl enable nvr-tunnel.service nvr-retention.timer nvr-health.timer nvr-viewer.service >/dev/null
 systemctl restart nvr-tunnel.service
 systemctl start nvr-retention.timer nvr-health.timer
+systemctl restart nvr-viewer.service
 for c in ${CHANNELS:-1 2 3 4 5 6}; do
   systemctl enable "nvr-recorder@$c.service" >/dev/null
   systemctl restart "nvr-recorder@$c.service"

@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DVR Recordings</title>
+<style>
+  :root {
+    --bg: #f6f6f4; --panel: #ffffff; --ink: #1c1d1f; --muted: #6b6f76; --line: #dcdcd8;
+    --seg: #3d7a6b; --seg-live: #c4562b; --seg-sel: #1f5a4c; --accent: #1f5a4c; --head: #ecece8;
+    --play: #d8412f; --focus: #2a6fdb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #111214; --panel: #1a1c1f; --ink: #e8e9ea; --muted: #8b9098; --line: #2a2d31;
+      --seg: #4f9a87; --seg-live: #e0764a; --seg-sel: #7fcfb9; --accent: #7fcfb9; --head: #222428;
+      --play: #ff6b57; --focus: #6ea3ff;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink);
+    font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  body { min-height: 100vh; }
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+  header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  h1 { font-size: 17px; font-weight: 600; margin: 0 8px 0 0; letter-spacing: -0.01em; }
+  .spacer { flex: 1; }
+  button, select, input[type="date"] {
+    font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line);
+    border-radius: 6px; padding: 5px 10px; height: 32px;
+  }
+  button { cursor: pointer; }
+  button:hover:not(:disabled) { border-color: var(--muted); }
+  button:disabled { opacity: .45; cursor: default; }
+  :focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+  .icon { width: 32px; padding: 0; }
+  .tz { color: var(--muted); font-size: 12px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+  .player { display: flex; flex-direction: column; overflow: hidden; }
+  .stage { background: #000; display: flex; align-items: center; justify-content: center;
+    height: min(62vh, 640px); position: relative; border-radius: 10px 10px 0 0; }
+  video { max-width: 100%; max-height: 100%; background: #000; }
+  .msg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    color: #cfd2d6; text-align: center; padding: 24px; pointer-events: none; }
+  .msg[hidden] { display: none; }
+  .bar { display: flex; align-items: center; gap: 12px; padding: 8px 12px; flex-wrap: wrap;
+    border-top: 1px solid var(--line); min-height: 48px; }
+  .now { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .sub { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .timeline { padding: 10px 12px 12px; }
+  .axis, .lane { display: grid; grid-template-columns: 52px 1fr; align-items: center; }
+  .axis { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; margin-bottom: 4px; }
+  .ticks { position: relative; height: 14px; }
+  .ticks span { position: absolute; transform: translateX(-50%); }
+  .ticks span:first-child { transform: none; }
+  .ticks span:last-child { transform: translateX(-100%); }
+  .lane { height: 30px; }
+  .lane + .lane { margin-top: 4px; }
+  .lane .label { font-size: 12px; font-weight: 600; color: var(--muted); cursor: pointer; user-select: none;
+    background: none; border: 0; text-align: left; padding: 0; height: 100%; }
+  .lane.sel .label { color: var(--accent); }
+  .track { position: relative; height: 100%; background: var(--head); border-radius: 5px; cursor: crosshair; overflow: hidden; }
+  .lane.sel .track { box-shadow: inset 0 0 0 1px var(--accent); }
+  .grid { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--line); opacity: .7; pointer-events: none; }
+  .blk { position: absolute; top: 5px; bottom: 5px; background: var(--seg); border-radius: 3px; min-width: 2px; pointer-events: none; }
+  .blk.live { background: var(--seg-live); }
+  .blk.cur { background: var(--seg-sel); box-shadow: 0 0 0 1px var(--ink); }
+  .head { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--play); pointer-events: none; z-index: 3; }
+  .hover { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--muted); pointer-events: none; display: none; z-index: 2; }
+  .tip { position: fixed; z-index: 10; pointer-events: none; background: var(--ink); color: var(--bg);
+    font-size: 12px; padding: 3px 7px; border-radius: 4px; font-variant-numeric: tabular-nums; display: none; }
+  .tl-wrap { position: relative; }
+  .overlay { position: absolute; left: 52px; right: 0; top: 0; bottom: 0; pointer-events: none; }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 7px 12px; border-top: 1px solid var(--line); white-space: nowrap; }
+  th { color: var(--muted); font-weight: 500; font-size: 12px; border-top: 0; }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover { background: var(--head); }
+  tbody tr.cur { background: var(--head); box-shadow: inset 3px 0 0 var(--accent); }
+  td a { color: var(--accent); text-decoration: none; margin-right: 10px; }
+  td a:hover { text-decoration: underline; }
+  .tbl-head { padding: 10px 12px; font-weight: 600; display: flex; align-items: baseline; gap: 10px; }
+  .empty { padding: 18px 12px; color: var(--muted); }
+  .tbl-scroll { overflow-x: auto; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--seg-live); margin-right: 6px; }
+  .keys { color: var(--muted); font-size: 12px; }
+  kbd { font: 11px ui-monospace, Menlo, monospace; background: var(--head); border: 1px solid var(--line);
+    border-radius: 4px; padding: 0 5px; }
+  @media (max-width: 640px) { .wrap { padding: 10px; } .stage { height: 42vh; } .keys { display: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Recordings</h1>
+    <button id="prevDay" class="icon" aria-label="Previous day">&#8249;</button>
+    <input type="date" id="day" aria-label="Day">
+    <button id="nextDay" class="icon" aria-label="Next day">&#8250;</button>
+    <button id="today">Today</button>
+    <span class="tz" id="tz"></span>
+    <span class="spacer"></span>
+    <label class="tz">Speed
+      <select id="speed"><option>1</option><option>2</option><option>4</option><option>8</option></select>
+    </label>
+  </header>
+
+  <section class="panel player">
+    <div class="stage">
+      <video id="v" controls playsinline preload="metadata"></video>
+      <div class="msg" id="msg">Click a timeline to start playback</div>
+    </div>
+    <div class="bar">
+      <span class="now" id="now">-</span>
+      <span class="sub" id="seginfo"></span>
+      <span class="spacer"></span>
+      <span class="keys"><kbd>1</kbd>-<kbd>9</kbd> camera &nbsp; <kbd>&larr;</kbd><kbd>&rarr;</kbd> 10s &nbsp; <kbd>[</kbd><kbd>]</kbd> segment &nbsp; <kbd>space</kbd> play</span>
+    </div>
+  </section>
+
+  <section class="panel timeline">
+    <div class="tl-wrap" id="tl">
+      <div class="axis"><span></span><div class="ticks" id="ticks"></div></div>
+      <div id="lanes"></div>
+      <div class="overlay"><div class="head" id="head" hidden></div></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="tbl-head"><span id="tblTitle">Segments</span><span class="sub" id="tblSub"></span></div>
+    <div class="tbl-scroll" id="tbl"></div>
+  </section>
+</div>
+<div class="tip" id="tip"></div>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const v = $("v");
+const S = { data: null, day: startOfDay(new Date()), ch: null, seg: null, pendingSeek: null };
+const pad = (n) => String(n).padStart(2, "0");
+
+function startOfDay(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+function dayBounds() { const a = S.day.getTime() / 1000; const b = new Date(S.day.getFullYear(), S.day.getMonth(), S.day.getDate() + 1).getTime() / 1000; return [a, b]; }
+function fmtTime(sec, withSec = true) { const d = new Date(sec * 1000); return pad(d.getHours()) + ":" + pad(d.getMinutes()) + (withSec ? ":" + pad(d.getSeconds()) : ""); }
+function fmtDur(sec) { sec = Math.max(0, Math.round(sec)); const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60; return h ? `${h}h ${pad(m)}m` : m ? `${m}m ${pad(s)}s` : `${s}s`; }
+function fmtSize(b) { return b >= 1e9 ? (b / 1e9).toFixed(2) + " GB" : (b / 1e6).toFixed(1) + " MB"; }
+function fmtDate(d) { return d.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short", year: "numeric" }); }
+function inputValue(d) { return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; }
+function stem(seg) { return seg.n.replace(/\.mkv$/, ""); }
+function segsFor(ch) { return (S.data && S.data.segments[ch]) || []; }
+function tzName() { const p = new Intl.DateTimeFormat(undefined, { timeZoneName: "short" }).formatToParts(new Date()).find((x) => x.type === "timeZoneName"); return p ? p.value : ""; }
+
+async function load() {
+  try {
+    const r = await fetch("/api/segments", { cache: "no-store" });
+    if (!r.ok) throw new Error(r.status);
+    S.data = await r.json();
+  } catch (e) { $("tblSub").textContent = "could not load segments (" + e.message + ")"; return; }
+  if (!S.ch) S.ch = S.data.channels[0];
+  renderAll();
+}
+
+function renderAll() { renderTimeline(); renderTable(); updateHead(); }
+
+function renderTimeline() {
+  const [a, b] = dayBounds(), span = b - a;
+  const ticks = $("ticks"); ticks.textContent = "";
+  for (let h = 0; h <= 24; h += 3) {
+    const s = document.createElement("span"); s.textContent = pad(h % 24) + (h === 24 ? ":00" : ""); s.style.left = (h / 24 * 100) + "%"; ticks.appendChild(s);
+  }
+  const lanes = $("lanes"); lanes.textContent = "";
+  for (const ch of S.data.channels) {
+    const lane = document.createElement("div"); lane.className = "lane" + (ch === S.ch ? " sel" : "");
+    const label = document.createElement("button"); label.className = "label"; label.textContent = "CH" + ch;
+    label.setAttribute("aria-label", "Camera " + ch); label.onclick = () => switchChannel(ch);
+    const track = document.createElement("div"); track.className = "track";
+    for (let h = 1; h < 24; h++) { const g = document.createElement("div"); g.className = "grid"; g.style.left = (h / 24 * 100) + "%"; track.appendChild(g); }
+    for (const sg of segsFor(ch)) {
+      if (sg.e < a || sg.s > b) continue;
+      const blk = document.createElement("div");
+      blk.className = "blk" + (sg.live ? " live" : "") + (S.seg && S.ch === ch && S.seg.n === sg.n ? " cur" : "");
+      blk.style.left = ((Math.max(sg.s, a) - a) / span * 100) + "%";
+      blk.style.width = ((Math.min(sg.e, b) - Math.max(sg.s, a)) / span * 100) + "%";
+      track.appendChild(blk);
+    }
+    const hov = document.createElement("div"); hov.className = "hover"; track.appendChild(hov);
+    track.addEventListener("pointermove", (ev) => { const t = timeAt(track, ev); hov.style.display = "block"; hov.style.left = ((t - a) / span * 100) + "%"; tip(ev, fmtTime(t)); });
+    track.addEventListener("pointerleave", () => { hov.style.display = "none"; $("tip").style.display = "none"; });
+    track.addEventListener("click", (ev) => seekWall(ch, timeAt(track, ev)));
+    lane.append(label, track); lanes.appendChild(lane);
+  }
+}
+
+function timeAt(track, ev) { const r = track.getBoundingClientRect(); const [a, b] = dayBounds(); return a + Math.min(Math.max((ev.clientX - r.left) / r.width, 0), 1) * (b - a); }
+function tip(ev, text) { const t = $("tip"); t.textContent = text; t.style.display = "block"; t.style.left = (ev.clientX + 12) + "px"; t.style.top = (ev.clientY - 28) + "px"; }
+
+function renderTable() {
+  const [a, b] = dayBounds();
+  const rows = segsFor(S.ch).filter((s) => s.e >= a && s.s < b);
+  $("tblTitle").textContent = "Camera " + (S.ch || "");
+  $("tblSub").textContent = rows.length ? `${rows.length} segments, ${fmtSize(rows.reduce((n, r) => n + r.b, 0))}` : "";
+  const box = $("tbl"); box.textContent = "";
+  if (!rows.length) { const d = document.createElement("div"); d.className = "empty"; d.textContent = "No recordings on " + fmtDate(S.day) + " for this camera."; box.appendChild(d); return; }
+  const t = document.createElement("table");
+  t.innerHTML = "<thead><tr><th>Time</th><th>Length</th><th>Size</th><th>Download</th></tr></thead>";
+  const tb = document.createElement("tbody");
+  for (const r of rows.slice().reverse()) {
+    const tr = document.createElement("tr"); if (S.seg && S.seg.n === r.n) tr.className = "cur";
+    const c1 = document.createElement("td");
+    if (r.live) { const dt = document.createElement("span"); dt.className = "dot"; dt.title = "recording now"; c1.appendChild(dt); }
+    c1.appendChild(document.createTextNode(fmtTime(r.s) + " - " + fmtTime(r.e)));
+    const c2 = document.createElement("td"); c2.textContent = fmtDur(r.e - r.s);
+    const c3 = document.createElement("td"); c3.textContent = fmtSize(r.b);
+    const c4 = document.createElement("td");
+    for (const [label, href] of [["mkv", `/raw/${S.ch}/${stem(r)}.mkv`], ["mp4", `/media/${S.ch}/${stem(r)}.mp4`]]) {
+      const l = document.createElement("a"); l.textContent = label; l.href = href; if (label === "mp4") l.download = `ch${S.ch}-${stem(r)}.mp4`; l.onclick = (e) => e.stopPropagation(); c4.appendChild(l);
+    }
+    tr.append(c1, c2, c3, c4); tr.onclick = () => play(S.ch, r, 0); tb.appendChild(tr);
+  }
+  t.appendChild(tb); box.appendChild(t);
+}
+
+function findSeg(ch, t) {
+  const list = segsFor(ch);
+  let best = null, bestD = Infinity;
+  for (const s of list) {
+    const d = t < s.s ? s.s - t : t > s.e ? t - s.e : 0;
+    if (d < bestD) { best = s; bestD = d; }
+  }
+  return bestD <= 600 ? best : null;  // within 10 minutes of a recording
+}
+
+function seekWall(ch, t) {
+  const s = findSeg(ch, t);
+  if (!s) { S.ch = ch; stopWith(`No recording near ${fmtTime(t)} on camera ${ch}`); renderAll(); return; }
+  play(ch, s, Math.min(Math.max(t - s.s, 0), Math.max(s.e - s.s - 1, 0)));
+}
+
+function switchChannel(ch) { const t = wallNow(); if (t) seekWall(ch, t); else { S.ch = ch; renderAll(); } }
+
+function play(ch, seg, offset) {
+  S.ch = ch; S.seg = seg; S.pendingSeek = offset;
+  $("msg").hidden = false; $("msg").textContent = "Preparing camera " + ch + " " + fmtTime(seg.s + offset) + "...";
+  v.src = `/media/${ch}/${stem(seg)}.mp4`;
+  v.playbackRate = Number($("speed").value);
+  v.play().catch(() => {});
+  history.replaceState(null, "", `#ch=${ch}&t=${Math.round(seg.s + offset)}`);
+  renderAll();
+}
+
+function stopWith(text) { v.removeAttribute("src"); v.load(); S.seg = null; $("msg").hidden = false; $("msg").textContent = text; $("now").textContent = "-"; $("seginfo").textContent = ""; }
+function wallNow() { return S.seg ? S.seg.s + (v.currentTime || 0) : null; }
+
+v.addEventListener("loadedmetadata", () => { if (S.pendingSeek != null) { v.currentTime = S.pendingSeek; S.pendingSeek = null; } v.playbackRate = Number($("speed").value); });
+v.addEventListener("playing", () => { $("msg").hidden = true; });
+v.addEventListener("error", () => { if (!S.seg) return; $("msg").hidden = false; $("msg").textContent = "This browser cannot play the recording (HEVC needs Safari or Chrome with hardware decoding). Use the download links below, or open it in VLC."; });
+v.addEventListener("ended", () => stepSegment(1, true));
+$("speed").addEventListener("change", () => { v.playbackRate = Number($("speed").value); });
+
+function stepSegment(dir, auto) {
+  if (!S.seg) return;
+  const list = segsFor(S.ch), i = list.findIndex((s) => s.n === S.seg.n), n = list[i + dir];
+  if (!n) { if (auto) $("msg").hidden = false, $("msg").textContent = "End of recordings"; return; }
+  if (auto && dir > 0 && n.s - S.seg.e > 120) { stopWith(`Gap in recordings until ${fmtTime(n.s)}`); return; }
+  play(S.ch, n, 0);
+}
+
+function updateHead() {
+  const head = $("head"), t = wallNow(), [a, b] = dayBounds();
+  if (t == null || t < a || t > b) { head.hidden = true; } else {
+    head.hidden = false; head.style.left = ((t - a) / (b - a) * 100) + "%";
+    const first = document.querySelector(".lane"), tl = $("tl").getBoundingClientRect();
+    if (first) { const lr = $("lanes").getBoundingClientRect(); head.style.top = (lr.top - tl.top) + "px"; head.style.height = lr.height + "px"; head.style.bottom = "auto"; }
+  }
+  if (S.seg) {
+    const d = new Date(t * 1000);
+    $("now").textContent = `CH${S.ch}  ${fmtDate(startOfDay(d))}  ${fmtTime(t)}`;
+    $("seginfo").textContent = `segment ${fmtTime(S.seg.s)} - ${fmtTime(S.seg.e)}${S.seg.live ? " (recording now)" : ""}`;
+  }
+}
+setInterval(updateHead, 250);
+
+function setDay(d) { S.day = startOfDay(d); $("day").value = inputValue(S.day); $("nextDay").disabled = S.day >= startOfDay(new Date()); if (S.data) renderAll(); }
+$("prevDay").onclick = () => setDay(new Date(S.day.getFullYear(), S.day.getMonth(), S.day.getDate() - 1));
+$("nextDay").onclick = () => setDay(new Date(S.day.getFullYear(), S.day.getMonth(), S.day.getDate() + 1));
+$("today").onclick = () => setDay(new Date());
+$("day").onchange = (e) => { const p = e.target.value.split("-").map(Number); if (p.length === 3 && p[0]) setDay(new Date(p[0], p[1] - 1, p[2])); };
+
+document.addEventListener("keydown", (e) => {
+  if (e.target.matches("input, select") || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (/^[1-9]$/.test(e.key) && S.data && S.data.channels.includes(e.key)) { switchChannel(e.key); e.preventDefault(); }
+  else if (e.key === " " && S.seg) { v.paused ? v.play() : v.pause(); e.preventDefault(); }
+  else if (e.key === "ArrowLeft" && S.seg) { v.currentTime = Math.max(0, v.currentTime - (e.shiftKey ? 60 : 10)); e.preventDefault(); }
+  else if (e.key === "ArrowRight" && S.seg) { v.currentTime += (e.shiftKey ? 60 : 10); e.preventDefault(); }
+  else if (e.key === "[") stepSegment(-1, false);
+  else if (e.key === "]") stepSegment(1, false);
+});
+
+$("tz").textContent = "times in " + tzName();
+setDay(new Date());
+load().then(() => {
+  const m = location.hash.match(/ch=(\d+)&t=(\d+)/);
+  if (m && S.data && S.data.channels.includes(m[1])) { const t = Number(m[2]); setDay(new Date(t * 1000)); seekWall(m[1], t); }
+});
+setInterval(() => { if (!document.hidden) load(); }, 20000);
+window.addEventListener("resize", updateHead);
+</script>
+</body>
+</html>

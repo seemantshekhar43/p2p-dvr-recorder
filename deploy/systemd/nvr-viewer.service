@@ -1,0 +1,22 @@
+[Unit]
+Description=NVR recordings viewer (web UI)
+After=network-online.target
+
+[Service]
+EnvironmentFile=/etc/nvr-recorder/env
+Environment=VIEWER_STATIC=/usr/local/share/nvr-viewer
+User=nvr
+Group=nvr
+CacheDirectory=nvr-viewer
+ExecStart=/usr/bin/python3 /usr/local/bin/nvr-viewer
+Restart=always
+RestartSec=5
+# Read-only view of the recordings plus its own cache.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadOnlyPaths=/mnt
+
+[Install]
+WantedBy=multi-user.target
