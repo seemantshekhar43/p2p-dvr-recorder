@@ -363,7 +363,8 @@ function renderLanes() {
   ensureWindow();
   const [wa, wb] = S.win, span = wb - wa, vis = visible();
   const ticks = $("ticks"); ticks.textContent = "";
-  const step = span <= 3600 ? 600 : span <= 21600 ? 3600 : 10800;
+  const narrow = $("ticks").clientWidth < 420;   // phones: half as many labels so they do not collide
+  const step = (span <= 3600 ? 600 : span <= 21600 ? 3600 : 10800) * (narrow ? 2 : 1);
   const midnight = startOfDay(new Date(wa * 1000)).getTime() / 1000, firstTick = midnight + Math.ceil((wa - midnight) / step) * step;
   for (let t = firstTick, first = true; t <= wb + 1; t += step) {
     const s = document.createElement("span"); s.textContent = fmtTime(t, false); s.style.left = ((t - wa) / span * 100) + "%";
