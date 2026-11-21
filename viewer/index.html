@@ -84,8 +84,11 @@
   .tile.ph .msg { display: flex; color: var(--muted); }
   .ov { position: absolute; left: 0; right: 0; display: flex; align-items: center; gap: 6px; padding: 8px 10px; pointer-events: none;
     color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.7); }
-  .ov.top { top: 0; background: linear-gradient(rgba(0,0,0,.55), transparent); padding-bottom: 18px; }
-  .ov.bot { bottom: 0; background: linear-gradient(transparent, rgba(0,0,0,.55)); padding-top: 18px; font-variant-numeric: tabular-nums; font-size: 12px; }
+  .ov { z-index: 2; }
+  .ov.top { top: 0; }
+  .ov.bot { bottom: 0; font-variant-numeric: tabular-nums; font-size: 12px; }
+  .tile:not(.ph)::after { content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+    background: linear-gradient(rgba(0,0,0,.5), transparent 22%, transparent 78%, rgba(0,0,0,.5)); }
   .lbl { font-weight: 600; font-size: 13px; }
   .chip { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 10px;
     background: rgba(0,0,0,.45); }
@@ -298,10 +301,9 @@ class Tile {
     this.chip.hidden = !seg.live;
     if (!this.seg || this.seg.n !== seg.n) this.load(seg, T - seg.s);
     else {
-      const off = T - seg.s;
-      if (S.playing && seg.b !== this.size && (v.ended || (isFinite(v.duration) && off > v.duration - 0.5))) this.load(seg, off);   // playing into a live segment that has grown: fetch the newer snapshot
-      else if (v.ended) { v.pause(); return; }
-      else if (this.pending == null && !v.seeking && Math.abs(v.currentTime - off) > (S.playing ? 1.5 : 0.2)) v.currentTime = Math.min(off, v.duration || off);
+      const off = T - seg.s, dur = isFinite(v.duration) ? v.duration : Infinity;
+      if (S.playing && seg.b !== this.size && (v.ended || off > dur - 0.5)) this.load(seg, off);   // playing into a live segment that has grown: fetch the newer snapshot
+      else if (this.pending == null && !v.seeking && Math.abs(v.currentTime - off) > (S.playing ? 1.5 : 0.2) && !(v.ended && off >= dur - 0.3)) v.currentTime = Math.min(off, dur);
     }
     if (v.playbackRate !== S.rate) v.playbackRate = S.rate;
     if (S.playing) { if (v.paused && v.readyState >= 2 && !v.ended) v.play().catch(() => {}); } else if (!v.paused) v.pause();
@@ -445,7 +447,7 @@ function jumpSegment(dir) {
   }
   if (best !== null) seekTo(best);
 }
-function goLatest() { const l = latestEnd(visible()); if (l) seekTo(Math.max(l - 15, 0)); }
+function goLatest() { const l = latestEnd(visible()); if (l) seekTo(Math.max(l - 45, 0)); }   // the freshest seconds of a live file are not playable yet
 
 /* ---------- files drawer ---------- */
 function renderFiles() {
@@ -499,7 +501,7 @@ async function refresh() {
     if (h && [1, 4, 8].includes(Number(h[1]))) { S.mode = Number(h[1]); S.prevMode = S.mode === 1 ? 4 : S.mode; if (h[2] && S.data.channels.includes(h[2])) S.focus = h[2]; }
     if (S.mode === 1 && !S.focus) S.mode = 4;
     const end = latestEnd(S.data.channels);
-    S.T = h ? Number(h[3]) : (end ? Math.max(end - 20, 0) : null);
+    S.T = h ? Number(h[3]) : (end ? Math.max(end - 45, 0) : null);
     if (S.T != null) setDay(new Date(S.T * 1000), true);
     rebuildGrid();
     if (S.T == null) { $("grid").innerHTML = '<div class="empty-state">No recordings yet. They appear here as soon as the first segment is written.</div>'; }
