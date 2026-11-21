@@ -33,7 +33,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 SEGMENT_RE = re.compile(r"^(\d{8})-(\d{6})\.mkv$")
 CHANNEL_RE = re.compile(r"^\d{1,3}$")
-LIVE_WINDOW_S = 90  # a segment written to within this many seconds is "live"
+LIVE_WINDOW_S = 180  # a segment written to within this many seconds is "live" (low-bitrate cameras flush rarely)
 
 
 def env(name, default):
@@ -86,8 +86,10 @@ def list_segments(cfg, now=None):
                 st = os.stat(os.path.join(d, name))
             except FileNotFoundError:
                 continue
-            end = max(int(st.st_mtime), start)
-            rows.append({"n": name, "s": start, "e": end, "b": st.st_size, "live": now - st.st_mtime < LIVE_WINDOW_S})
+            live = now - st.st_mtime < LIVE_WINDOW_S
+            # A live segment is still being written: it covers up to now even if the file was last flushed a bit ago.
+            end = max(int(now) if live else int(st.st_mtime), start)
+            rows.append({"n": name, "s": start, "e": end, "b": st.st_size, "live": live})
         rows.sort(key=lambda r: r["s"])
         out[ch] = rows
     return out

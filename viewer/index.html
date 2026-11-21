@@ -299,7 +299,7 @@ class Tile {
     if (!this.seg || this.seg.n !== seg.n) this.load(seg, T - seg.s);
     else {
       const off = T - seg.s;
-      if (seg.b !== this.size && (v.ended || (isFinite(v.duration) && off > v.duration - 0.5))) this.load(seg, off);   // live segment grew: fetch the newer snapshot
+      if (S.playing && seg.b !== this.size && (v.ended || (isFinite(v.duration) && off > v.duration - 0.5))) this.load(seg, off);   // playing into a live segment that has grown: fetch the newer snapshot
       else if (v.ended) { v.pause(); return; }
       else if (this.pending == null && !v.seeking && Math.abs(v.currentTime - off) > (S.playing ? 1.5 : 0.2)) v.currentTime = Math.min(off, v.duration || off);
     }
@@ -358,16 +358,17 @@ function renderLanes() {
   const [wa, wb] = S.win, span = wb - wa, vis = visible();
   const ticks = $("ticks"); ticks.textContent = "";
   const step = span <= 3600 ? 600 : span <= 21600 ? 3600 : 10800;
-  for (let t = Math.ceil(wa / step) * step, first = true; t <= wb + 1; t += step) {
+  const midnight = startOfDay(new Date(wa * 1000)).getTime() / 1000, firstTick = midnight + Math.ceil((wa - midnight) / step) * step;
+  for (let t = firstTick, first = true; t <= wb + 1; t += step) {
     const s = document.createElement("span"); s.textContent = fmtTime(t, false); s.style.left = ((t - wa) / span * 100) + "%";
-    if (first) { s.classList.add("first"); first = false; } ticks.appendChild(s);
+    if (first && t - wa < span * 0.02) s.classList.add("first"); first = false; ticks.appendChild(s);
   }
   const lanes = $("lanes"); lanes.textContent = "";
   for (const ch of S.data.channels) {
     const lane = document.createElement("div"); lane.className = "lane" + (vis.includes(ch) ? " vis" : "");
     const nm = document.createElement("button"); nm.className = "lname"; nm.textContent = camName(ch); nm.title = "Focus " + camName(ch); nm.onclick = () => focusChannel(ch);
     const track = document.createElement("div"); track.className = "track";
-    for (let t = Math.ceil(wa / step) * step; t < wb; t += step) { const g = document.createElement("div"); g.className = "grid-line"; g.style.left = ((t - wa) / span * 100) + "%"; track.appendChild(g); }
+    for (let t = firstTick; t < wb; t += step) { const g = document.createElement("div"); g.className = "grid-line"; g.style.left = ((t - wa) / span * 100) + "%"; track.appendChild(g); }
     for (const sg of segsFor(ch)) {
       if (sg.e < wa || sg.s > wb) continue;
       const blk = document.createElement("div"); blk.className = "blk" + (sg.live ? " live" : "");

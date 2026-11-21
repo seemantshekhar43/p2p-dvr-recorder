@@ -65,6 +65,8 @@ class Listing(unittest.TestCase):
         names = [s["n"] for s in segs["1"]]
         self.assertEqual(names, ["20261121-190000.mkv", "20261121-200000.mkv", "20261121-210000.mkv"])
         self.assertEqual([s["live"] for s in segs["1"]], [False, False, True])
+        self.assertLessEqual(abs(segs["1"][2]["e"] - int(time.time())), 2)   # a live segment ends "now"
+        self.assertLess(segs["1"][1]["e"], int(time.time()) - 900)           # a finished one ends at its last write
         self.assertEqual(segs["2"], [])
 
     def test_resolve_rejects_traversal_and_unknown_channel(self):
