@@ -301,9 +301,15 @@ class Tile {
     else {
       const off = T - seg.s, dur = isFinite(v.duration) ? v.duration : Infinity;
       if (S.playing && seg.b !== this.size && (v.ended || off > dur - 0.5)) this.load(seg, off);   // playing into a live segment that has grown: fetch the newer snapshot
-      else if (this.pending == null && !v.seeking && Math.abs(v.currentTime - off) > (S.playing ? 1.5 : 0.2) && !(v.ended && off >= dur - 0.3)) v.currentTime = Math.min(off, dur);
+      else if (this.pending == null && !v.seeking && Math.abs(v.currentTime - off) > (S.playing ? 2.5 : 0.2) && !(v.ended && off >= dur - 0.3)) v.currentTime = Math.min(off, dur);
     }
-    if (v.playbackRate !== S.rate) v.playbackRate = S.rate;
+    // While playing, followers converge on the shared clock by speeding up or slowing down slightly instead of re-seeking.
+    let want = S.rate;
+    if (S.playing && this.pending == null && !v.seeking && !v.paused) {
+      const drift = (T - seg.s) - v.currentTime;   // > 0: this tile is behind the clock
+      want = S.rate * (1 + Math.max(-0.1, Math.min(0.1, drift * 0.3)));
+    }
+    if (Math.abs(v.playbackRate - want) > 0.005) v.playbackRate = want;
     if (S.playing) { if (v.paused && v.readyState >= 2 && !v.ended) v.play().catch(() => {}); } else if (!v.paused) v.pause();
     this.tclock.textContent = fmtTime(T);
   }
