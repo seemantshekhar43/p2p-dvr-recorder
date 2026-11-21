@@ -39,7 +39,7 @@
   .player { display: flex; flex-direction: column; overflow: hidden; }
   .stage { background: #000; display: flex; align-items: center; justify-content: center;
     height: min(56vh, 560px); position: relative; border-radius: 10px 10px 0 0; }
-  video { width: 100%; height: 100%; object-fit: contain; background: #000; }
+  video { object-fit: fill; background: #000; }
   video:not([src]) { visibility: hidden; }
   .msg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
     color: #cfd2d6; text-align: center; padding: 24px; pointer-events: none; }
@@ -100,6 +100,9 @@
     <button id="today">Today</button>
     <span class="tz" id="tz"></span>
     <span class="spacer"></span>
+    <label class="tz">Aspect
+      <select id="aspect"><option value="auto">Auto</option><option value="native">Native</option></select>
+    </label>
     <label class="tz">Speed
       <select id="speed"><option>1</option><option>2</option><option>4</option><option>8</option></select>
     </label>
@@ -252,7 +255,22 @@ function play(ch, seg, offset) {
 function stopWith(text) { v.removeAttribute("src"); v.load(); S.seg = null; $("msg").hidden = false; $("msg").textContent = text; $("now").textContent = "-"; $("seginfo").textContent = ""; }
 function wallNow() { return S.seg ? S.seg.s + (v.currentTime || 0) : null; }
 
-v.addEventListener("loadedmetadata", () => { if (S.pendingSeek != null) { v.currentTime = S.pendingSeek; S.pendingSeek = null; } v.playbackRate = Number($("speed").value); });
+// Many DVRs record 1080p as a half-width 960x1080 stream (non-square pixels). Browsers ignore that, so in Auto
+// mode a portrait-shaped stream is shown at double width (16:9). Native shows the stored pixels as they are.
+function fitVideo() {
+  const stage = document.querySelector(".stage");
+  if (!v.videoWidth) { v.style.width = v.style.height = ""; return; }
+  let dar = v.videoWidth / v.videoHeight;
+  if ($("aspect").value === "auto" && dar < 1) dar *= 2;
+  const w = Math.min(stage.clientWidth, stage.clientHeight * dar);
+  v.style.width = Math.round(w) + "px"; v.style.height = Math.round(w / dar) + "px";
+}
+$("aspect").value = (() => { try { return localStorage.getItem("aspect") || "auto"; } catch (e) { return "auto"; } })();
+$("aspect").addEventListener("change", () => { try { localStorage.setItem("aspect", $("aspect").value); } catch (e) {} fitVideo(); });
+window.addEventListener("resize", fitVideo);
+v.addEventListener("resize", fitVideo);
+
+v.addEventListener("loadedmetadata", () => { fitVideo(); if (S.pendingSeek != null) { v.currentTime = S.pendingSeek; S.pendingSeek = null; } v.playbackRate = Number($("speed").value); });
 v.addEventListener("playing", () => { $("msg").hidden = true; });
 v.addEventListener("error", () => { if (!S.seg) return; $("msg").hidden = false; $("msg").textContent = "This browser cannot play the recording (HEVC needs Safari or Chrome with hardware decoding). Use the download links below, or open it in VLC."; });
 v.addEventListener("ended", () => stepSegment(1, true));
