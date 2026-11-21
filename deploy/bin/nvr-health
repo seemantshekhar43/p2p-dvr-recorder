@@ -19,7 +19,9 @@ prev=$(cat "$STATE_DIR/problems" 2>/dev/null || true)
 echo "$problems" >"$STATE_DIR/problems"
 if [ -n "$problems" ]; then echo "UNHEALTHY:$problems"; else echo "ok used=$((used_kb / 1024))MB"; fi
 if [ "$problems" != "$prev" ] && [ -n "${NTFY_URL:-}" ]; then
-  if [ -n "$problems" ]; then msg="nvr-recorder problems:$problems"; else msg="nvr-recorder recovered"; fi
-  curl -fsS -m 10 -d "$msg" "$NTFY_URL" >/dev/null || echo "ntfy failed"
+  host=$(hostname)
+  if [ -n "$problems" ]; then msg="problems:$problems"; tags=warning; else msg="recovered"; tags=white_check_mark; fi
+  curl -fsS -m 10 -H "Title: nvr-recorder on $host" -H "Tags: $tags" \
+    ${NTFY_TOKEN:+-H "Authorization: Bearer $NTFY_TOKEN"} -d "$msg" "$NTFY_URL" >/dev/null || echo "ntfy failed"
 fi
 [ -z "$problems" ]
