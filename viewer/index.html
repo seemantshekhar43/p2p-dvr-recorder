@@ -488,6 +488,7 @@ function setDay(d, keepTime) {
     const [a, b] = dayBounds(); let first = null;
     for (const ch of S.data.channels) for (const s of segsFor(ch)) if (s.e >= a && s.s < b && (first === null || s.s < first)) first = s.s;
     if (first !== null) { S.T = Math.max(first, a); S.master = null; }
+    else if (S.T == null || S.T < a || S.T >= b) { S.T = a; S.master = null; }   // empty day: park the clock at its start so tiles say "No recording"
   }
   S.win = null; if (S.data) { renderLanes(); renderFiles(); tick(0); }
 }
@@ -523,7 +524,7 @@ $("prevDay").onclick = () => shiftDay(-1); $("nextDay").onclick = () => shiftDay
 $("day").onchange = (e) => { const p = e.target.value.split("-").map(Number); if (p.length === 3 && p[0]) setDay(new Date(p[0], p[1] - 1, p[2])); };
 for (const b of document.querySelectorAll("[data-zoom]")) b.onclick = () => { S.zoom = Number(b.dataset.zoom); S.win = null; for (const x of document.querySelectorAll("[data-zoom]")) x.setAttribute("aria-pressed", String(x === b)); renderLanes(); };
 document.addEventListener("keydown", (e) => {
-  if (e.target.matches("input, select") || e.metaKey || e.ctrlKey || e.altKey) return;
+  if ((e.target.closest && e.target.closest("input, select, textarea")) || e.metaKey || e.ctrlKey || e.altKey) return;
   const k = e.key;
   if (k === " ") { togglePlay(); e.preventDefault(); }
   else if (k === "ArrowLeft") { step(e.shiftKey ? -60 : -10); e.preventDefault(); }
