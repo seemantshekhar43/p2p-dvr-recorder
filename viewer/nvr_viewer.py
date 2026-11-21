@@ -139,39 +139,47 @@ class Remuxer:
         return dst
 
     def _remux(self, src, dst, size, actual):
-        fd, tmp = tempfile.mkstemp(dir=self.cfg.cache_dir, suffix=".part")
-        os.close(fd)
-        try:
-            # hvc1 tag: Safari/Chrome only accept HEVC-in-MP4 tagged hvc1. A snapshot may end mid-cluster; that is fine.
-            args = ["ffmpeg", "-v", "error", "-y"]
-            if size >= actual:
-                cmd = args + ["-nostdin", "-i", src]
-                stdin = None
-            else:  # the file has grown past the snapshot the page asked for: feed only its first `size` bytes
-                cmd = args + ["-f", "matroska", "-i", "pipe:0"]
-                stdin = subprocess.PIPE
-            cmd += ["-c", "copy", "-an", "-tag:v", "hvc1", "-movflags", "+faststart", "-f", "mp4", tmp]
-            proc = subprocess.Popen(cmd, stdin=stdin, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
-            if stdin is not None:
-                try:
-                    with open(src, "rb") as f:
-                        left = size
-                        while left > 0:
-                            chunk = f.read(min(1 << 20, left))
-                            if not chunk:
-                                break
-                            proc.stdin.write(chunk)
-                            left -= len(chunk)
-                    proc.stdin.close()
-                except BrokenPipeError:
-                    pass
-            err = proc.stderr.read().decode(errors="replace")
-            if proc.wait(timeout=300) != 0 or os.path.getsize(tmp) == 0:
-                raise RuntimeError("ffmpeg failed: " + err.strip()[-300:])
-            os.replace(tmp, dst)
-        finally:
-            if os.path.exists(tmp):
-                os.unlink(tmp)
+        # hvc1 tag: Safari/Chrome only accept HEVC-in-MP4 tagged hvc1. H.264 sources reject that tag, so retry without it.
+        last = ""
+        for tag in (["-tag:v", "hvc1"], []):
+            fd, tmp = tempfile.mkstemp(dir=self.cfg.cache_dir, suffix=".part")
+            os.close(fd)
+            try:
+                ok, last = self._run_ffmpeg(src, tmp, size, actual, tag)
+                if ok:
+                    os.replace(tmp, dst)
+                    return
+            finally:
+                if os.path.exists(tmp):
+                    os.unlink(tmp)
+        raise RuntimeError("ffmpeg failed: " + last.strip()[-300:])
+
+    @staticmethod
+    def _run_ffmpeg(src, tmp, size, actual, tag):
+        if size >= actual:
+            cmd = ["ffmpeg", "-v", "error", "-y", "-nostdin", "-i", src]
+            stdin = None
+        else:  # the file has grown past the snapshot the page asked for: feed only its first `size` bytes
+            cmd = ["ffmpeg", "-v", "error", "-y", "-f", "matroska", "-i", "pipe:0"]
+            stdin = subprocess.PIPE
+        cmd += ["-c", "copy", "-an"] + tag + ["-movflags", "+faststart", "-f", "mp4", tmp]
+        proc = subprocess.Popen(cmd, stdin=stdin, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+        if stdin is not None:
+            try:
+                with open(src, "rb") as f:
+                    left = size
+                    while left > 0:
+                        chunk = f.read(min(1 << 20, left))
+                        if not chunk:
+                            break
+                        proc.stdin.write(chunk)
+                        left -= len(chunk)
+                proc.stdin.close()
+            except BrokenPipeError:
+                pass
+        err = proc.stderr.read().decode(errors="replace")
+        rc = proc.wait(timeout=300)
+        return rc == 0 and os.path.getsize(tmp) > 0, err
 
     def _prune(self, keep):
         d = self.cfg.cache_dir

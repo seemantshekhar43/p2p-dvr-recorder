@@ -156,7 +156,7 @@
 </style>
 </head>
 <body>
-<div class="banner" id="banner" hidden>This browser may not play the recordings (they are HEVC/H.265). Use Safari, or Chrome/Edge with hardware decoding, or download a segment and open it in VLC.</div>
+<div class="banner" id="banner" hidden>This browser could not play a recording. HEVC/H.265 cameras need Safari, or Chrome/Edge with hardware decoding. You can always download a segment (Segments and downloads, below) and open it in VLC.</div>
 
 <header class="top">
   <span class="brand">Recordings</span>
@@ -274,7 +274,7 @@ class Tile {
       if (this.pending != null) { v.currentTime = Math.min(this.pending, v.duration || this.pending); this.pending = null; }
       v.playbackRate = S.rate;
     });
-    v.addEventListener("error", () => { if (this.seg) { this.el.classList.add("err"); this.msg.textContent = "Cannot play this recording"; } });
+    v.addEventListener("error", () => { if (this.seg) { this.el.classList.add("err"); this.msg.textContent = "Cannot play this recording"; $("banner").hidden = false; } });
     v.addEventListener("playing", () => this.el.classList.remove("err"));
   }
   setLabels() {
@@ -541,7 +541,6 @@ setInterval(() => { if (!document.hidden) refresh(); }, 20000);
 
 $("tz").textContent = "times in " + tzName();
 setPlayIcon();
-if (!document.createElement("video").canPlayType('video/mp4; codecs="hvc1.1.6.L93.B0"')) $("banner").hidden = false;
 setDay(new Date(), true);
 refresh();
 </script>
