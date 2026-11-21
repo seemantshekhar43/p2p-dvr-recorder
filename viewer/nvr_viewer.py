@@ -103,8 +103,16 @@ def resolve_source(cfg, ch, name):
     return p if os.path.isfile(p) else None
 
 
+def pick_size(requested, actual):
+    """Snapshot size to remux. The page passes the size it saw in the listing (?v=), which pins a growing live
+    segment to one immutable snapshot so every Range request for the same URL returns identical bytes."""
+    if requested is None or requested <= 0:
+        return actual
+    return min(requested, actual)
+
+
 class Remuxer:
-    """MKV -> MP4 (stream copy) with a size-capped on-disk cache."""
+    """MKV -> MP4 (stream copy) with a size-capped on-disk LRU cache, keyed by segment and snapshot size."""
 
     def __init__(self, cfg):
         self.cfg = cfg
@@ -112,49 +120,66 @@ class Remuxer:
         self.key_locks = {}
         os.makedirs(cfg.cache_dir, exist_ok=True)
 
-    def mp4_for(self, ch, name):
+    def mp4_for(self, ch, name, requested_size=None):
         src = resolve_source(self.cfg, ch, name)
         if src is None:
             return None
-        st = os.stat(src)
-        key = f"{ch}-{name[:-4]}-{st.st_size}-{st.st_mtime_ns}.mp4"
+        actual = os.stat(src).st_size
+        size = pick_size(requested_size, actual)
+        key = f"{ch}-{name[:-4]}-{size}.mp4"
         dst = os.path.join(self.cfg.cache_dir, key)
         with self.lock:
             klock = self.key_locks.setdefault(key, threading.Lock())
         with klock:
             if not os.path.isfile(dst):
-                self._remux(src, dst)
-                self._prune(keep=key, prefix=f"{ch}-{name[:-4]}-")
+                self._remux(src, dst, size, actual)
+                self._prune(keep=key)
             else:
                 os.utime(dst)  # LRU touch
         return dst
 
-    def _remux(self, src, dst):
+    def _remux(self, src, dst, size, actual):
         fd, tmp = tempfile.mkstemp(dir=self.cfg.cache_dir, suffix=".part")
         os.close(fd)
         try:
-            # hvc1 tag: Safari/Chrome only accept HEVC-in-MP4 tagged hvc1. A growing file may end mid-cluster; that is fine.
-            r = subprocess.run(
-                ["ffmpeg", "-nostdin", "-v", "error", "-i", src, "-c", "copy", "-an", "-tag:v", "hvc1",
-                 "-movflags", "+faststart", "-f", "mp4", "-y", tmp],
-                capture_output=True, text=True, timeout=300)
-            if r.returncode != 0 or os.path.getsize(tmp) == 0:
-                raise RuntimeError("ffmpeg failed: " + r.stderr.strip()[-300:])
+            # hvc1 tag: Safari/Chrome only accept HEVC-in-MP4 tagged hvc1. A snapshot may end mid-cluster; that is fine.
+            args = ["ffmpeg", "-v", "error", "-y"]
+            if size >= actual:
+                cmd = args + ["-nostdin", "-i", src]
+                stdin = None
+            else:  # the file has grown past the snapshot the page asked for: feed only its first `size` bytes
+                cmd = args + ["-f", "matroska", "-i", "pipe:0"]
+                stdin = subprocess.PIPE
+            cmd += ["-c", "copy", "-an", "-tag:v", "hvc1", "-movflags", "+faststart", "-f", "mp4", tmp]
+            proc = subprocess.Popen(cmd, stdin=stdin, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+            if stdin is not None:
+                try:
+                    with open(src, "rb") as f:
+                        left = size
+                        while left > 0:
+                            chunk = f.read(min(1 << 20, left))
+                            if not chunk:
+                                break
+                            proc.stdin.write(chunk)
+                            left -= len(chunk)
+                    proc.stdin.close()
+                except BrokenPipeError:
+                    pass
+            err = proc.stderr.read().decode(errors="replace")
+            if proc.wait(timeout=300) != 0 or os.path.getsize(tmp) == 0:
+                raise RuntimeError("ffmpeg failed: " + err.strip()[-300:])
             os.replace(tmp, dst)
         finally:
             if os.path.exists(tmp):
                 os.unlink(tmp)
 
-    def _prune(self, keep, prefix):
+    def _prune(self, keep):
         d = self.cfg.cache_dir
         entries = []
         for f in os.listdir(d):
+            if not f.endswith(".mp4"):
+                continue
             p = os.path.join(d, f)
-            if f.endswith(".part") or not f.endswith(".mp4"):
-                continue
-            if f.startswith(prefix) and f != keep:  # stale version of the same segment
-                os.unlink(p)
-                continue
             st = os.stat(p)
             entries.append((st.st_atime, st.st_size, p))
         total = sum(e[1] for e in entries)
@@ -260,7 +285,9 @@ def make_handler(cfg, remuxer):
         def _route(self, head):
             if not self._authorized():
                 return
-            path = self.path.split("?", 1)[0]
+            path, _, query = self.path.partition("?")
+            qv = re.search(r"(?:^|&)v=(\d+)(?:&|$)", query)
+            requested = int(qv.group(1)) if qv else None
             if path in ("/", "/index.html"):
                 try:
                     with open(os.path.join(cfg.static_dir, "index.html"), "rb") as f:
@@ -284,7 +311,7 @@ def make_handler(cfg, remuxer):
                         return self._send_bytes(HTTPStatus.NOT_FOUND, b"not found", "text/plain", head)
                     return self._send_file(src, "video/x-matroska", head, download_name=f"ch{ch}-{name}")
                 try:
-                    mp4 = remuxer.mp4_for(ch, name)
+                    mp4 = remuxer.mp4_for(ch, name, requested)
                 except Exception as e:  # remux failure: report, keep serving
                     self.log_message("remux failed: %s", e)
                     return self._send_bytes(HTTPStatus.BAD_GATEWAY, b"remux failed", "text/plain", head)

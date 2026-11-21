@@ -91,7 +91,7 @@ class Server(unittest.TestCase):
         write(os.path.join(rec, "index.html"), "<html>ok</html>", "w")
         cfg = cfg_for(rec, **env)
         rm = v.Remuxer(cfg)
-        rm.mp4_for = lambda ch, name: None  # no ffmpeg in unit tests
+        rm.mp4_for = lambda ch, name, size=None: None  # no ffmpeg in unit tests
         self.srv = ThreadingHTTPServer(("127.0.0.1", 0), v.make_handler(cfg, rm))
         threading.Thread(target=self.srv.serve_forever, daemon=True).start()
         self.base = f"http://127.0.0.1:{self.srv.server_address[1]}"
@@ -137,7 +137,13 @@ class Server(unittest.TestCase):
 
 
 class Cache(unittest.TestCase):
-    def test_prune_keeps_newest_and_drops_stale_versions(self):
+    def test_pick_size_pins_snapshot(self):
+        self.assertEqual(v.pick_size(None, 100), 100)
+        self.assertEqual(v.pick_size(0, 100), 100)
+        self.assertEqual(v.pick_size(60, 100), 60)    # file grew past what the page saw: pin to the page's snapshot
+        self.assertEqual(v.pick_size(500, 100), 100)  # never beyond the file
+
+    def test_prune_is_lru_and_keeps_the_requested_one(self):
         with tempfile.TemporaryDirectory() as d:
             cfg = cfg_for(d, VIEWER_CACHE_MB="1")
             os.makedirs(cfg.cache_dir)
@@ -147,13 +153,11 @@ class Cache(unittest.TestCase):
                 write(p, b"\0" * size)
                 os.utime(p, (atime, atime))
             now = time.time()
-            mk("1-20261121-190000-5-1.mp4", 100, now - 50)     # stale version of the same segment
-            mk("1-20261121-200000-5-1.mp4", 700_000, now - 40)  # oldest other
-            mk("1-20261121-210000-5-1.mp4", 700_000, now - 30)
-            mk("1-20261121-190000-9-2.mp4", 100, now)            # the one we keep
-            rm._prune(keep="1-20261121-190000-9-2.mp4", prefix="1-20261121-190000-")
-            left = sorted(os.listdir(cfg.cache_dir))
-            self.assertEqual(left, ["1-20261121-190000-9-2.mp4", "1-20261121-210000-5-1.mp4"])
+            mk("1-a-1.mp4", 700_000, now - 50)   # oldest
+            mk("1-b-1.mp4", 700_000, now - 40)
+            mk("1-c-1.mp4", 100, now)            # just requested
+            rm._prune(keep="1-c-1.mp4")
+            self.assertEqual(sorted(os.listdir(cfg.cache_dir)), ["1-b-1.mp4", "1-c-1.mp4"])
 
 
 if __name__ == "__main__":
