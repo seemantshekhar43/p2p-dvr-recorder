@@ -1,6 +1,7 @@
 import base64
 import json
 import os
+import secrets
 import tempfile
 import threading
 import time
@@ -126,11 +127,12 @@ class Server(unittest.TestCase):
         self.assertEqual(d["names"], {"1": "Gate"})  # blank skipped; channel 2 has no name, extra names ignored
 
     def test_basic_auth(self):
-        self.start(VIEWER_PASSWORD="s3cret", VIEWER_USER="me")
+        pw = secrets.token_urlsafe(16)  # generated per run, so no credential-looking literal lives in the repo
+        self.start(VIEWER_PASSWORD=pw, VIEWER_USER="me")
         self.assertEqual(self.get("/")[0], 401)
-        bad = "Basic " + base64.b64encode(b"me:wrong").decode()
+        bad = "Basic " + base64.b64encode(f"me:{pw}x".encode()).decode()
         self.assertEqual(self.get("/", {"Authorization": bad})[0], 401)
-        good = "Basic " + base64.b64encode(b"me:s3cret").decode()
+        good = "Basic " + base64.b64encode(f"me:{pw}".encode()).decode()
         self.assertEqual(self.get("/", {"Authorization": good})[0], 200)
 
 
