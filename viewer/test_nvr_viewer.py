@@ -57,13 +57,15 @@ class Listing(unittest.TestCase):
         os.utime(p, (t, t))
 
     def test_listing_sorted_and_live(self):
-        self.put(1, "20261121-200000.mkv", age=1000)
-        self.put(1, "20261121-190000.mkv", age=4000)
+        from datetime import datetime, timedelta, timezone
+        stamp = lambda mins: (datetime.now(timezone.utc) - timedelta(minutes=mins)).strftime("%Y%m%d-%H%M%S") + ".mkv"
+        a, b, c = stamp(240), stamp(120), stamp(10)       # started 4 h, 2 h and 10 min ago
+        self.put(1, b, age=1000)
+        self.put(1, a, age=4000)
         self.put(1, "ignored.txt")
-        self.put(1, "20261121-210000.mkv", age=1)
+        self.put(1, c, age=1)
         segs = v.list_segments(cfg_for(self.rec))
-        names = [s["n"] for s in segs["1"]]
-        self.assertEqual(names, ["20261121-190000.mkv", "20261121-200000.mkv", "20261121-210000.mkv"])
+        self.assertEqual([s["n"] for s in segs["1"]], [a, b, c])
         self.assertEqual([s["live"] for s in segs["1"]], [False, False, True])
         self.assertLessEqual(abs(segs["1"][2]["e"] - int(time.time())), 2)   # a live segment ends "now"
         self.assertLess(segs["1"][1]["e"], int(time.time()) - 900)           # a finished one ends at its last write
