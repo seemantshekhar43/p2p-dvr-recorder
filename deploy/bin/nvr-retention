@@ -1,5 +1,18 @@
 #!/bin/sh
-# Delete segments older than RETENTION_HOURS (default 48).
+# Keep the most recent RETENTION_HOURS of footage per channel and delete the rest.
+#
+# The cutoff is measured from the channel's newest segment, not from the clock: if the DVR
+# or a camera stops delivering (power cut, network down), its last RETENTION_HOURS of
+# footage stays on disk instead of ageing out while nothing new arrives. nvr-health alerts
+# when a channel goes stale, and the disk quota still bounds the total (it only alerts).
 set -eu
 : "${REC_DIR:=/mnt/recordings}" "${RETENTION_HOURS:=48}"
-find "$REC_DIR" -type f -name '*.mkv' -mmin "+$((RETENTION_HOURS * 60))" -delete
+now=$(date +%s)
+for dir in "$REC_DIR"/ch*/; do
+  [ -d "$dir" ] || continue
+  newest=$(find "$dir" -maxdepth 1 -type f -name '*.mkv' -printf '%T@\n' | sort -n | tail -1 | cut -d. -f1)
+  [ -n "$newest" ] || continue
+  ref=$newest; [ "$now" -lt "$ref" ] && ref=$now   # clock skew: never look into the future
+  cutoff=$((ref - RETENTION_HOURS * 3600))
+  find "$dir" -maxdepth 1 -type f -name '*.mkv' ! -newermt "@$cutoff" -delete
+done
