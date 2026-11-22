@@ -249,7 +249,7 @@ const ICON = {
 const S = {
   data: null, day: startOfDay(new Date()), mode: 4, prevMode: 4, focus: null, page: 0,
   T: null, playing: false, rate: 1, zoom: 24, win: null, tiles: new Map(), master: null, noMasterMs: 0, drag: null, dragT: null,
-  off: loadOffsets(), solo: null, markers: new Map(),
+  off: loadOffsets(), solo: null, markers: new Map(), justSeeked: false,
 };
 /* Per-camera time offsets (seconds, camera time = shared time + offset). They let you move one camera on its own and
    line up a camera whose clock is a few seconds off. Kept in this browser only. */
@@ -464,7 +464,7 @@ function seekFromLane(ch, t) {
 
 /* ---------- playback clock ---------- */
 function seekTo(t) {
-  S.T = t; S.master = null;
+  S.T = t; S.master = null; S.justSeeked = true;
   const d = startOfDay(new Date(t * 1000));
   if (d.getTime() !== S.day.getTime()) { S.day = d; $("day").value = inputValue(d); $("nextDay").disabled = d >= startOfDay(new Date()); S.win = null; renderLanes(); renderFiles(); }
   tick(0); writeHash();
@@ -480,7 +480,9 @@ function tick(dtOverride) {
   const now = performance.now(), dt = dtOverride === 0 ? 0 : (now - lastTick) / 1000; lastTick = now;
   if (S.T == null || !S.data) return;
   const vis = visible();
-  if (S.playing) {
+  // Right after a seek the master video still reports its old position: let the tiles seek first, do not re-derive T from them.
+  if (S.playing && S.justSeeked) { S.justSeeked = false; }
+  else if (S.playing) {
     const m = pickMaster();
     if (m) { S.T = m.seg.s + m.v.currentTime - offOf(m.ch); S.noMasterMs = 0; }
     else {
@@ -489,6 +491,7 @@ function tick(dtOverride) {
     }
     const end = latestEnd(vis); if (end && S.T > end + 1) { S.T = end; S.playing = false; setPlayIcon(); writeHash(); }
   }
+  S.justSeeked = false;
   for (const ch of vis) getTile(ch).follow(S.T);
   if (!S.drag) { const tt = clockTime(); $("clock").textContent = (S.solo ? camName(S.solo) + "  " : "") + fmtDate(startOfDay(new Date(tt * 1000))) + "  " + fmtTime(tt); }
   if (ensureWindow()) renderLanes(); else updateHead();
@@ -511,7 +514,7 @@ function moveTo(t) {
   setOffset(ch, t - S.T);
 }
 function setOffset(ch, off) {
-  off = Math.max(-86400, Math.min(86400, off));
+  off = Math.max(-86400, Math.min(86400, off)); S.justSeeked = true;
   if (Math.abs(off) < 0.5) delete S.off[ch]; else S.off[ch] = off;
   saveOffsets(); for (const t of S.tiles.values()) t.syncSolo();
   tick(0); updateSoloUi();
