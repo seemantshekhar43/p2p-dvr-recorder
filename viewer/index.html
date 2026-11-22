@@ -615,7 +615,8 @@ document.addEventListener("keydown", (e) => {
   else if (k === "s" || k === "S") { const ch = S.solo || (S.mode === 1 ? visible()[0] : null); if (ch) toggleSolo(ch); }
   else if (k === "f" || k === "F") toggleFullscreen();
 });
-window.addEventListener("resize", updateHead);
+let lastNarrow = null;
+window.addEventListener("resize", () => { const n = $("ticks").clientWidth < 420; if (n !== lastNarrow) { lastNarrow = n; renderLanes(); } updateHead(); });
 document.addEventListener("fullscreenchange", () => setTimeout(updateHead, 50));
 setInterval(() => tick(), 100);
 setInterval(() => { if (!document.hidden) refresh(); }, 20000);

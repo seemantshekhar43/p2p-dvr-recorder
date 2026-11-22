@@ -120,10 +120,11 @@ REC_DIR=/tmp/nvr-demo CHANNELS="1 2 3 4" VIEWER_NAMES="Gate,Hall,Garden,Garage" 
 
 - **Layouts**: `1` one camera (with a camera list on the left), `4` a 2 x 2 grid (a pager appears when you have more than four cameras), `8` a 4 x 2 grid. Switch with the buttons at the top or the `1`, `4`, `8` keys.
 - **Click a camera to focus it.** Click any tile, a name in the camera list, or a name on the timeline. Press `Esc` or the close button to return to the grid. The playback time is kept, so you are looking at the same moment on a different camera.
+- **Move just one camera.** Press the **link button** on a tile (or `s` in the one-camera view) to "adjust only this camera": the seek buttons, arrow keys, `[` `]`, `Latest` and timeline clicks then move only that camera, while the others keep playing in sync. A chip on the tile shows how far it is from the rest (for example `-0:40`; click it to re-sync), a marker on its timeline lane shows where it actually is, and a bar under the controls offers **Re-sync** and **Done** (`Esc` also leaves the mode). The offset stays until you re-sync it, is remembered in your browser, and is also handy for lining up a camera whose clock is a few seconds off.
 - **Synchronized playback.** Every visible camera plays against one shared clock, so you can follow someone across cameras. Cameras that have no footage at that moment show "No recording".
 - **Timeline.** One lane per camera for the selected day, in your browser's time zone. Click or drag to jump (a click in a gap snaps to the nearest recording), zoom with `1h` / `6h` / `24h`, `Latest` jumps to the newest footage. Orange blocks are still being recorded.
 - **Controls**: play/pause, 10 second skip, speed 0.5x to 8x, previous/next day, fullscreen per camera.
-- **Keyboard**: `space` play, `left`/`right` 10 s (with shift 1 min), `[` `]` previous/next recording, `1` `4` `8` layout, `Esc` back to the grid, `f` fullscreen.
+- **Keyboard**: `space` play, `left`/`right` 10 s (with shift 1 min), `[` `]` previous/next recording, `1` `4` `8` layout, `s` adjust only this camera, `Esc` leave that mode or go back to the grid, `f` fullscreen.
 - **Segments and downloads**: expand the panel under the timeline to download any segment as the original `mkv` or a browser-friendly `mp4`.
 - **Deep links**: the address bar always holds the layout, camera and time (`#v=1&ch=2&t=1795290900`), so you can bookmark or share a moment.
 - **Camera names**: set `VIEWER_NAMES="Gate,Hall,Garden"` (in `CHANNELS` order) instead of CH1, CH2, ...
