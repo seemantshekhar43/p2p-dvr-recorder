@@ -9,8 +9,8 @@ User=nvr
 Group=nvr
 ExecStart=/usr/local/bin/nvr-record %i
 Restart=always
-RestartSec=5
-# A tunnel restart takes a while (device holds the old relay session ~15-20 s); don't hit the start limit.
+RestartSec=1
+# A tunnel rotation or reconnect takes a few seconds; retry quickly and never hit the start limit.
 StartLimitIntervalSec=0
 
 [Install]

@@ -139,7 +139,7 @@ public final class PTCPSession {
         public var rto: TimeInterval = 0.5
         public var maxRetries = 8
         public var idleTimeout: TimeInterval = 60
-        public var stallTimeout: TimeInterval = 20
+        public var stallTimeout: TimeInterval = 10   // no ACK progress for this long with data outstanding: the path is dead
         public init() {}
     }
 

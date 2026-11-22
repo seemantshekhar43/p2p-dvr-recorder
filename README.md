@@ -168,6 +168,7 @@ All settings live in `/etc/nvr-recorder/env` (see `deploy/nvr-recorder.env.examp
 | `NVR_CLOUD` | `auto` | `instaon`, `easy4ip` or `auto` (tries both) |
 | `NVR_LISTEN` / `NVR_REMOTE` | `1554` / `554` | Local port the tunnel exposes / the DVR's RTSP port |
 | `NVR_BUSY_RETRY` | `120` | Seconds to keep retrying while the DVR still holds an old relay session |
+| `NVR_ROTATE_MINUTES` | `36` | The relay drops a session after about 40 minutes, so the tunnel opens a fresh one after this long (`0` disables) |
 | `CAM_PUNCH` | unset | Set to `1` to try the direct (STUN punch) path. Off by default: the relay path is the reliable one. |
 | `REC_DIR` | `/mnt/recordings` | Where recordings go (one `chN` folder per channel) |
 | `CHANNELS` | `1 2 3 4 5 6` | Channels to record, health-check and show |
