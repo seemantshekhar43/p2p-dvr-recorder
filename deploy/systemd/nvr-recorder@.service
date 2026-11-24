@@ -1,7 +1,10 @@
 [Unit]
 Description=NVR recorder, channel %i
 After=nvr-tunnel.service
-Requires=nvr-tunnel.service
+Wants=nvr-tunnel.service
+# A tunnel rotation or outage can last longer than systemd's default start limit (5 starts in 10 s);
+# without this the units end up `failed` and never recover. Must be in [Unit], it is ignored in [Service].
+StartLimitIntervalSec=0
 
 [Service]
 EnvironmentFile=/etc/nvr-recorder/env
@@ -10,8 +13,6 @@ Group=nvr
 ExecStart=/usr/local/bin/nvr-record %i
 Restart=always
 RestartSec=1
-# A tunnel rotation or reconnect takes a few seconds; retry quickly and never hit the start limit.
-StartLimitIntervalSec=0
 
 [Install]
 WantedBy=multi-user.target
