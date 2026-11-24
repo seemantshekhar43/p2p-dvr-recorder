@@ -1,8 +1,30 @@
-# p2p-dvr-recorder
+<h1 align="center">p2p-dvr-recorder</h1>
 
-Record a **CP Plus / Dahua-family DVR that you can only reach through the vendor's P2P cloud** (the "scan the QR code in the app" kind, InstaOn or Easy4ip) onto **your own disk**, keep a rolling window of footage, and **watch it back in a browser**.
+<p align="center">
+  Record a CP Plus / Dahua-family DVR that is only reachable through the vendor's P2P cloud,
+  onto your own disk, and watch it back in a browser.
+</p>
 
-Those DVRs usually do not expose RTSP to the internet, and they do not let a normal NVR program log in over P2P. This project does the P2P part for you: it opens the vendor's relay tunnel, exposes the DVR's ordinary RTSP port on `127.0.0.1`, and records it with plain `ffmpeg -c copy` (no re-encoding, so it is cheap on CPU).
+<p align="center">
+  <a href="https://github.com/seemantshekhar43/p2p-dvr-recorder/actions/workflows/build.yml"><img alt="build" src="https://github.com/seemantshekhar43/p2p-dvr-recorder/actions/workflows/build.yml/badge.svg"></a>
+  <a href="LICENSE"><img alt="license: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
+  <img alt="platform: Linux" src="https://img.shields.io/badge/platform-Linux-lightgrey.svg">
+  <img alt="Swift 6" src="https://img.shields.io/badge/Swift-6-orange.svg">
+</p>
+
+<p align="center">
+  <a href="#quick-start">Quick start</a> |
+  <a href="#web-viewer">Web viewer</a> |
+  <a href="#configuration">Configuration</a> |
+  <a href="#troubleshooting">Troubleshooting</a> |
+  <a href="CONTRIBUTING.md">Contributing</a>
+</p>
+
+---
+
+Many DVRs sold with a "scan the QR code in the app" setup (InstaOn, Easy4ip) do not expose RTSP to the internet, and a normal NVR program cannot log in to them over P2P. This project does the P2P part for you: it opens the vendor's relay tunnel, exposes the DVR's ordinary RTSP port on `127.0.0.1`, and records it with plain `ffmpeg -c copy` (no re-encoding, so it is cheap on CPU).
+
+## Features
 
 - Records every channel of the DVR over **one** tunnel, as 30 minute MKV segments
 - Keeps the last N hours per channel, alerts you (ntfy) when a camera goes quiet or the disk fills up
@@ -10,7 +32,7 @@ Those DVRs usually do not expose RTSP to the internet, and they do not let a nor
 - Runs as plain systemd services on Debian/Ubuntu (a Proxmox LXC works well), or just try the viewer on demo footage first
 - Every setting is an environment variable
 
-> **Status:** built and used on one DVR (CP Plus, HEVC, 6 cameras, InstaOn). The tunnel code is a Linux port of [rajpdus/cammob](https://github.com/rajpdus/cammob) (MIT), which reports working on other CP Plus and Dahua firmware. Reports from other devices are welcome.
+> **Status:** used daily on one DVR (CP Plus, HEVC, 6 cameras, InstaOn). The tunnel code is a Linux port of [rajpdus/cammob](https://github.com/rajpdus/cammob) (MIT), which reports working on other CP Plus and Dahua firmware. Reports from other devices are welcome.
 
 ---
 
@@ -290,6 +312,12 @@ CAM_PASSWORD=... swift run camtool channels YOUR_SERIAL -u admin
 
 CI (`.github/workflows/build.yml`) builds and tests on x86_64 for every push, and attaches binaries to releases from tags.
 
+## Contributing
+
+Bug reports, device reports (which DVR, firmware and cloud you used) and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md). For security issues see [SECURITY.md](SECURITY.md).
+
 ## Credits and license
 
-The relay tunnel is a Linux Swift port of [rajpdus/cammob](https://github.com/rajpdus/cammob) (MIT, pinned at commit `c83546e`), which reverse-engineered the InstaOn handshake and tunnelled RTSP/HTTP through it. MIT licensed, see `LICENSE`. Not affiliated with CP Plus, Dahua, InstaOn or Easy4ip.
+The relay tunnel is a Linux Swift port of [rajpdus/cammob](https://github.com/rajpdus/cammob) (MIT, pinned at commit `c83546e`), which reverse-engineered the InstaOn handshake and tunnelled RTSP/HTTP through it. Released under the [MIT License](LICENSE), which also carries the original cammob copyright notice.
+
+**Disclaimer.** This is an independent project, not affiliated with or endorsed by CP Plus, Dahua, InstaOn or Easy4ip; all product names are trademarks of their owners. It interoperates with a vendor cloud service using a reverse-engineered protocol. Use it only with devices you own or are authorised to access, and check that doing so is consistent with the vendor's terms and your local law. The software is provided as is, without warranty.
